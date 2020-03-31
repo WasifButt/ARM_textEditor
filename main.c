@@ -103,7 +103,7 @@ void plot_string(int x, int y, char *text_ptr) {
     }
 }
 
-void VGA_text_clean() {
+void clear_characters() {
     for(int y = 0; y < 60; y++){
         for(int x = 0; x < 80; x++){
             int offset = (y << 7) + x;
@@ -116,16 +116,16 @@ void VGA_text_clean() {
 int main(void) {
     volatile int * pixel_ctrl_ptr = (int *)0xFF203020;
     pixel_buffer_start = *pixel_ctrl_ptr;
-	character_buffer = (char *) 0xC9000000;
+    character_buffer = (char *) 0xC9000000;
 	
     clear_screen();
-	VGA_text_clean();
+	clear_characters();
 
 	set_A9_IRQ_stack();
 	config_GIC();
 	config_PS2s();
 	enable_A9_interrupts();
-	
+
 	while (1) {}
 	
     return 0;
