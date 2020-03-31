@@ -8,7 +8,7 @@ void PS2_ISR();
 void plot_pixel(int x, int y, short int line_color);
 void clear_screen();
 void plot_string(int x, int y, char *text_ptr);
-void VGA_text_clean();
+void clear_characters();
 
 volatile int pixel_buffer_start;
 volatile char *character_buffer;
