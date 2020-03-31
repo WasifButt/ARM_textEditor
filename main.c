@@ -12,6 +12,7 @@ void clear_characters();
 
 volatile int pixel_buffer_start;
 volatile char *character_buffer;
+int where_you_are_x, where_you_are_y, byte_count;
 
 void enable_A9_interrupts() {
 	int status = 0b01010011;
@@ -52,12 +53,11 @@ void PS2_ISR() {
     int PS2_data;
     PS2_data = *(PS2_ptr);
 	
-	char data[2];
-	data[1] = '\0';
-	data[0] = PS2_data;
-	plot_string(70, 50, data);
+	char my_data[2];
+	my_data[1] = '\0';
+	my_data[0] = PS2_data;
 	
-	return;
+	plot_string(where_you_are_x, where_you_are_y, my_data);
 }
 
 void __attribute__ ((interrupt)) __cs3_isr_irq () {
@@ -93,14 +93,31 @@ void clear_screen() {
     }
 }
 
-void plot_string(int x, int y, char *text_ptr) {	
+void plot_string(int x, int y, char *text_ptr) {
     int offset = (y << 7) + x;
+	
+	byte_count++;
 
-    while (*(text_ptr)) {
-        *(character_buffer + offset) = *(text_ptr);
-        text_ptr++;
-        offset++;
-    }
+	if (byte_count == 3) {;
+    	while (*(text_ptr)) {
+        	*(character_buffer + offset) = *(text_ptr);
+        	text_ptr++;
+        	offset++;
+			
+			if (where_you_are_x < 80) {
+				where_you_are_x++;
+			} else {
+				where_you_are_x = 0;
+				where_you_are_y++;
+			}
+	
+			if (where_you_are_y == 60) {
+				where_you_are_y = 0;
+			}
+    	}
+					 
+		byte_count = 0;
+	}
 }
 
 void clear_characters() {
@@ -116,7 +133,7 @@ void clear_characters() {
 int main(void) {
     volatile int * pixel_ctrl_ptr = (int *)0xFF203020;
     pixel_buffer_start = *pixel_ctrl_ptr;
-    character_buffer = (char *) 0xC9000000;
+	character_buffer = (char *) 0xC9000000;
 	
     clear_screen();
 	clear_characters();
@@ -125,7 +142,11 @@ int main(void) {
 	config_GIC();
 	config_PS2s();
 	enable_A9_interrupts();
-
+	
+	where_you_are_x = 0;
+	where_you_are_y = 0;
+	byte_count = 0;
+	
 	while (1) {}
 	
     return 0;
