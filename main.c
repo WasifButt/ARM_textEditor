@@ -169,8 +169,27 @@ void PS2_ISR() {
 		char data[2];
 		data[0] = ps2_to_ascii(PS2_data);
 		data[1] = '\0';
+		
+		// BACKSPACE FUNCTIONALITY
+		if (ps2_to_ascii(PS2_data) == 0x08) {
+			if (where_you_are_x > 0) {
+				where_you_are_x--;
+			}
+			else {
+				if (where_you_are_y > 0) {
+					where_you_are_x = 79;
+					where_you_are_y--;
+				}
+			}
+			
+			int offset = (where_you_are_y << 7) + where_you_are_x;
+            *(character_buffer + offset) = 0;
+			return;
+		}
+		//******************//
+		
+		// NORMAL CHARACTERS
 		plot_string(where_you_are_x, where_you_are_y, data);
-
 		if (where_you_are_x < 79) {
 			where_you_are_x++;
 		} else {
@@ -181,6 +200,7 @@ void PS2_ISR() {
 		if (where_you_are_y == 60) {
 			where_you_are_y = 0;
 		}
+		//****************//
 	} else
 		seen_flag = 0;
 }
@@ -235,13 +255,6 @@ void plot_string(int x, int y, char *text_ptr) {
     	}
 }
 
-void plot_char(int x, int y, char *text_ptr) {
-	 int offset = (y << 7) + x;
-    char a = *(text_ptr);
-	*(character_buffer + offset) = a;
-	text_ptr++;
-	offset++;
-}
 
 void clear_characters() {
     for(int y = 0; y < 60; y++){
