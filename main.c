@@ -24,10 +24,7 @@ int all_lines[60] = {0};
 int ps2_to_ascii (int ps2, int shift) {
     if (shift) {		
         if (ps2 == 0x801C) return 0x41; // A
-        else if (ps2 == 0x8032) {
-			void clear_screen_w();
-			return 0x42; // B
-		}
+        else if (ps2 == 0x8032) return 0x42; // B
         else if (ps2 == 0x8021) return 0x43; // C
         else if (ps2 == 0x8023) return 0x44; // D
         else if (ps2 == 0x8024) return 0x45; // E
