@@ -170,6 +170,25 @@ void PS2_ISR() {
 		data[0] = ps2_to_ascii(PS2_data);
 		data[1] = '\0';
 		
+		// TAB FUNCTIONALITY
+		if (ps2_to_ascii(PS2_data) == 0x09) {
+			if ((where_you_are_x + 4) < 79) {
+				where_you_are_x+=4;
+			}
+			return;
+		}
+		//********************//
+		
+		// ENTER FUNCTIONALITY
+		if (ps2_to_ascii(PS2_data) == 0x0D) {
+			if (where_you_are_y < 60) {
+				where_you_are_y++;
+				where_you_are_x = 0;
+			}
+			return;
+		}
+		//********************//
+		
 		// BACKSPACE FUNCTIONALITY
 		if (ps2_to_ascii(PS2_data) == 0x08) {
 			if (where_you_are_x > 0) {
