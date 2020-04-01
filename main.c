@@ -13,8 +13,8 @@ void clear_characters();
 
 volatile int pixel_buffer_start;
 volatile char *character_buffer;
-int where_you_are_x, where_you_are_y, byte_count;
-char init_char;
+int where_you_are_x, where_you_are_y;
+int seen_flag = 0;
 
 // converts PS/2 input data to ASCII for printing 
 int ps2_to_ascii (int ps2) {
@@ -160,15 +160,18 @@ void PS2_ISR() {
     int PS2_data;
     PS2_data = *(PS2_ptr);
 	
-	char my_ting[2];
-	my_ting[0] = ps2_to_ascii(PS2_data);
-	my_ting[1] = '\0';
+	if (ps2_to_ascii(PS2_data) == 0) {
+		seen_flag = 1;
+		return;
+	}
 	
-	if ((ps2_to_ascii(PS2_data) != 0) && (ps2_to_ascii(PS2_data) != init_char)) {
-		init_char = 0;
-		plot_string(where_you_are_x, where_you_are_y, my_ting);
+	if (seen_flag == 0) {
+		char data[2];
+		data[0] = ps2_to_ascii(PS2_data);
+		data[1] = '\0';
+		plot_string(where_you_are_x, where_you_are_y, data);
 
-		if (where_you_are_x < 80) {
+		if (where_you_are_x < 79) {
 			where_you_are_x++;
 		} else {
 			where_you_are_x = 0;
@@ -178,9 +181,8 @@ void PS2_ISR() {
 		if (where_you_are_y == 60) {
 			where_you_are_y = 0;
 		}
-	}
-	if (init_char == 0)
-		init_char = ps2_to_ascii(PS2_data);
+	} else
+		seen_flag = 0;
 }
 
 void __attribute__ ((interrupt)) __cs3_isr_irq () {
@@ -266,8 +268,6 @@ int main(void) {
 	
 	where_you_are_x = 0;
 	where_you_are_y = 0;
-	byte_count = 0;
-	init_char = 0;
 	
 	while (1) {}
 	
