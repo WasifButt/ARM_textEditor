@@ -7,7 +7,6 @@ void PS2_ISR();
 
 void plot_pixel(int x, int y, short int line_color);
 void clear_screen();
-void clear_screen_w();
 void plot_string(int x, int y, char *text_ptr);
 void clear_characters();
 
@@ -112,7 +111,7 @@ int ps2_to_ascii (int ps2) {
       else if (ps2 == 0x805D) return 0x5C; 
       else if (ps2 == 0x805B) return 0x5D; // ]
       else if (ps2 == 0x800E) return 0x60; // `
-      else if (ps2 == 0x8029) return 0x20; // space
+      else if (ps2 == 0x8029) return 0x20; // space 
       else if (ps2 == 0x8066) return 0x08; // backspace 
       else if (ps2 == 0x800D) return 0x09; // tab 
       else if (ps2 == 0x805A) return 0x0D; // enter 
@@ -257,14 +256,6 @@ void clear_screen() {
     }
 }
 
-void clear_screen_w() {
-    for (int x = 0; x < 320; x++) {
-        for (int y = 0; y < 240; y++) {
-            plot_pixel(x, y, 0xFFFF);
-        }
-    }
-}
-
 void plot_string(int x, int y, char *text_ptr) {
     int offset = (y << 7) + x;
     	while (*(text_ptr)) {
@@ -273,7 +264,6 @@ void plot_string(int x, int y, char *text_ptr) {
         	offset++;
     	}
 }
-
 
 void clear_characters() {
     for(int y = 0; y < 60; y++){
