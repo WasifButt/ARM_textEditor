@@ -128,6 +128,10 @@ int ps2_to_ascii (int ps2, int shift) {
         else if (ps2 == 0x800D) return 0x09; // tab 
         else if (ps2 == 0x805A) return 0x0D; // enter 
         else if (ps2 == 0x8076) return 0x1B; // escape
+		//else if (ps2 == 0x806B) return 0x4B; // left
+		//else if (ps2 == 0x8074) return 0x4D; // right
+		//else if (ps2 == 0x8075) return 0x48; // up
+		//else if (ps2 == 0x8072) return 0x50; // down
 		else return 0;
     }
 }
@@ -174,6 +178,40 @@ void PS2_ISR() {
 
     int ascii_data = ps2_to_ascii(PS2_data, shift);
 	
+	// ARROW KEY FUNCTIONALITY
+	// if (PS2_data == 0x806B) { // left
+	// 	if (where_you_are_x > 0) {
+	// 		where_you_are_x--;		}
+	// 	else {
+	// 		if (where_you_are_y > 0) {
+	// 			where_you_are_y--;
+	// 			where_you_are_x = all_lines[where_you_are_y];
+	// 		}
+	// 	}
+	// }
+	// else if (PS2_data == 0x8074) { // right 
+	// 	if (where_you_are_x < 60) {
+	// 		where_you_are_x++;
+	// 		all_lines[where_you_are_y] = where_you_are_x;
+	// 	}
+	// 	else {
+	// 		if (where_you_are_y < 60) {
+	// 			where_you_are_y++;
+	// 			where_you_are_x = all_lines[where_you_are_y];
+	// 		}
+	// 	}
+	// }
+	// else if (PS2_data == 0x8075) { // up
+	// 	if (where_you_are_y > 0)
+	// 		where_you_are_y--;
+	// }
+	// else if (PS2_data == 0x8072) { // down
+	// 	if (where_you_are_y < 60)
+	// 		where_you_are_y++;
+	// }
+	//*****************//
+	
+	// MANIPULATING SHIFT
     if (PS2_data == 0x8012 && shift == 0) {
 		if (shift_flag == -1)
 			shift_flag = 0;
@@ -188,12 +226,15 @@ void PS2_ISR() {
 			shift_flag = -1;
 		}
 	}
+	//*****************//
 	
+	// CHECKING FOR BREAK
 	if ((ascii_data == 0) && (PS2_data != 0x8012)) {
 		seen_flag = 1;
 		return;
 	}
 	
+	// DRAWING CHARACTERS
 	if ((seen_flag == 0) && (PS2_data != 0x8012)) {
 		char data[2];
 		data[0] = ascii_data;
@@ -328,8 +369,9 @@ int main(void) {
 	
 	where_you_are_x = 0;
 	where_you_are_y = 0;
-	
+
 	while (1) {}
+	
 	
     return 0;
 }
