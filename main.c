@@ -19,6 +19,7 @@ volatile char *character_buffer;
 int where_you_are_x, where_you_are_y;
 int seen_flag = 0, shift = 0, shift_flag = 0, key_flag = 0, bs_flag = 0;
 int all_lines[60] = {0};
+char temp_char;
 
 // converts PS/2 input data to ASCII for printing 
 int ps2_to_ascii (int ps2, int shift) {
@@ -222,7 +223,8 @@ void PS2_ISR() {
         if (where_you_are_x > 0) {
             if (key_flag == 0) {
                 int offset = (where_you_are_y << 7) + where_you_are_x;
-                *(character_buffer + offset) = 0;
+                *(character_buffer + offset) = temp_char;
+                temp_char = *(character_buffer + offset - 1);
                 where_you_are_x--;
                 key_flag = 1;
                 char data[2];
@@ -236,8 +238,12 @@ void PS2_ISR() {
             if (where_you_are_y > 0) {
                 if (key_flag == 0) {
                     int offset = (where_you_are_y << 7) + where_you_are_x;
-                    *(character_buffer + offset) = 0;
+                    *(character_buffer + offset) = temp_char;
                     where_you_are_y--;
+
+                    offset = (where_you_are_y << 7) + where_you_are_x;
+                    temp_char = *(character_buffer + offset);
+
                     where_you_are_x = all_lines[where_you_are_y];
                     key_flag = 1;
                     char data[2];
@@ -253,10 +259,13 @@ void PS2_ISR() {
         if (where_you_are_x < 60) {
             if (key_flag == 0) {
                 int offset = (where_you_are_y << 7) + where_you_are_x;
-                *(character_buffer + offset) = 0;
+                *(character_buffer + offset) = temp_char;
+                temp_char = *(character_buffer + offset + 1);
                 where_you_are_x++;
+
                 all_lines[where_you_are_y] = where_you_are_x;
                 key_flag = 1;
+
                 char data[2];
                 data[0] = 0x3C;
                 data[1] = '\0';
@@ -268,10 +277,15 @@ void PS2_ISR() {
              if (where_you_are_y < 60) {
                 if (key_flag == 0) {
                     int offset = (where_you_are_y << 7) + where_you_are_x;
-                    *(character_buffer + offset) = 0;
+                    *(character_buffer + offset) = temp_char;
                     where_you_are_y++;
+
+                    offset = (where_you_are_y << 7) + where_you_are_x;
+                    temp_char = *(character_buffer + offset);
+
                     where_you_are_x = all_lines[where_you_are_y];
                     key_flag = 1;
+
                     char data[2];
                     data[0] = 0x3C;
                     data[1] = '\0';
@@ -285,8 +299,10 @@ void PS2_ISR() {
          if (where_you_are_y > 0) {
             if (key_flag == 0) {
                 int offset = (where_you_are_y << 7) + where_you_are_x;
-                *(character_buffer + offset) = 0;
+                *(character_buffer + offset) = temp_char;
                 where_you_are_y--;
+                offset = (where_you_are_y << 7) + where_you_are_x;
+                temp_char = *(character_buffer + offset);
                 key_flag = 1;
                 char data[2];
                 data[0] = 0x3C;
@@ -300,8 +316,10 @@ void PS2_ISR() {
         if (where_you_are_y < 60) {
             if (key_flag == 0) {
                 int offset = (where_you_are_y << 7) + where_you_are_x;
-                *(character_buffer + offset) = 0;
+                *(character_buffer + offset) = temp_char;
                 where_you_are_y++;
+                offset = (where_you_are_y << 7) + where_you_are_x;
+                temp_char = *(character_buffer + offset);
                 key_flag = 1;
                 char data[2];
                 data[0] = 0x3C;
