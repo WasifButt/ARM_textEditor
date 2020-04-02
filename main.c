@@ -17,12 +17,12 @@ void clear_characters();
 volatile int pixel_buffer_start;
 volatile char *character_buffer;
 int where_you_are_x, where_you_are_y;
-int seen_flag = 0, shift = 0, shift_flag = 0;
+int seen_flag = 0, shift = 0, shift_flag = 0, key_flag = 0;
 int all_lines[60] = {0};
 
 // converts PS/2 input data to ASCII for printing 
 int ps2_to_ascii (int ps2, int shift) {
-    if (shift) {		
+    if (shift) {        
         if (ps2 == 0x801C) return 0x41; // A
         else if (ps2 == 0x8032) return 0x42; // B
         else if (ps2 == 0x8021) return 0x43; // C
@@ -70,7 +70,7 @@ int ps2_to_ascii (int ps2, int shift) {
         else if (ps2 == 0x805D) return 0x7C; // |
         else if (ps2 == 0x805B) return 0x7D; // }
         else if (ps2 == 0x800E) return 0x7E; // ~
-		else return 0;
+        else return 0;
     }
     else {
         if (ps2 == 0x801C) return 0x61; // a 
@@ -125,191 +125,219 @@ int ps2_to_ascii (int ps2, int shift) {
         else if (ps2 == 0x800D) return 0x09; // tab 
         else if (ps2 == 0x805A) return 0x0D; // enter 
         else if (ps2 == 0x8076) return 0x1B; // escape
-		//else if (ps2 == 0x806B) return 0x4B; // left
-		//else if (ps2 == 0x8074) return 0x4D; // right
-		//else if (ps2 == 0x8075) return 0x48; // up
-		//else if (ps2 == 0x8072) return 0x50; // down
-		else return 0;
+        //else if (ps2 == 0x806B) return 0x4B; // left
+        //else if (ps2 == 0x8074) return 0x4D; // right
+        //else if (ps2 == 0x8075) return 0x48; // up
+        //else if (ps2 == 0x8072) return 0x50; // down
+        else return 0;
     }
 }
 
 
 void enable_A9_interrupts() {
-	int status = 0b01010011;
-	asm("msr cpsr, %[ps]" : : [ps]"r"(status));
+    int status = 0b01010011;
+    asm("msr cpsr, %[ps]" : : [ps]"r"(status));
 }
 
 void config_GIC() {
-	config_interrupt(79, 1);
-	*((int *) 0xFFFEC104) = 0xFFFF;
-	*((int *) 0xFFFEC100) = 1;
-	*((int *) 0xFFFED000) = 1;
+    config_interrupt(79, 1);
+    *((int *) 0xFFFEC104) = 0xFFFF;
+    *((int *) 0xFFFEC100) = 1;
+    *((int *) 0xFFFED000) = 1;
 }
 
 void config_interrupt (int N, int CPU_target) {
-	int reg_offset, index, value, address;
+    int reg_offset, index, value, address;
 
-	reg_offset = (N >> 3) & 0xFFFFFFFC;
-	index = N & 0x1F;
-	value = 0x1 << index;
-	address = 0xFFFED100 + reg_offset;
+    reg_offset = (N >> 3) & 0xFFFFFFFC;
+    index = N & 0x1F;
+    value = 0x1 << index;
+    address = 0xFFFED100 + reg_offset;
 
-	*(int *)address |= value;
+    *(int *)address |= value;
 
-	reg_offset = (N & 0xFFFFFFFC);
-	index = N & 0x3;
-	address = 0xFFFED800 + reg_offset + index;
+    reg_offset = (N & 0xFFFFFFFC);
+    index = N & 0x3;
+    address = 0xFFFED800 + reg_offset + index;
 
-	*(char *)address = (char) CPU_target;
+    *(char *)address = (char) CPU_target;
 }
 
 void config_PS2s() {
-	volatile int* PS2_ptr_interrupt = (int*)0xFF200104;
-	*(PS2_ptr_interrupt) = 0x1;
+    volatile int* PS2_ptr_interrupt = (int*)0xFF200104;
+    *(PS2_ptr_interrupt) = 0x1;
 } 
 
 void PS2_ISR() {
-	volatile int * PS2_ptr = (int *) 0xFF200100;
+    volatile int * PS2_ptr = (int *) 0xFF200100;
     int PS2_data;
     PS2_data = *(PS2_ptr);
 
     int ascii_data = ps2_to_ascii(PS2_data, shift);
-	
-	// ARROW KEY FUNCTIONALITY
-	// if (PS2_data == 0x806B) { // left
-	// 	if (where_you_are_x > 0) {
-	// 		where_you_are_x--;		}
-	// 	else {
-	// 		if (where_you_are_y > 0) {
-	// 			where_you_are_y--;
-	// 			where_you_are_x = all_lines[where_you_are_y];
-	// 		}
-	// 	}
-	// }
-	// else if (PS2_data == 0x8074) { // right 
-	// 	if (where_you_are_x < 60) {
-	// 		where_you_are_x++;
-	// 		all_lines[where_you_are_y] = where_you_are_x;
-	// 	}
-	// 	else {
-	// 		if (where_you_are_y < 60) {
-	// 			where_you_are_y++;
-	// 			where_you_are_x = all_lines[where_you_are_y];
-	// 		}
-	// 	}
-	// }
-	// else if (PS2_data == 0x8075) { // up
-	// 	if (where_you_are_y > 0)
-	// 		where_you_are_y--;
-	// }
-	// else if (PS2_data == 0x8072) { // down
-	// 	if (where_you_are_y < 60)
-	// 		where_you_are_y++;
-	// }
-	//*****************//
-	
-	// MANIPULATING SHIFT
-    if (PS2_data == 0x8012 && shift == 0) {
-		if (shift_flag == -1)
-			shift_flag = 0;
-		else
-        	shift = 1; 			
-	}
-    else if (PS2_data == 0x8012 && shift == 1) {
-		if (shift_flag == 0) 
-			shift_flag = 1;
+    
+    // ARROW KEY FUNCTIONALITY
+	if (PS2_data == 0x806B) { // left
+		if (where_you_are_x > 0) {
+			if (key_flag == 0) {
+			 where_you_are_x--;
+			 key_flag = 1;
+		 } else
+			 key_flag = 0;
+		}
 		else {
-			shift = 0;
-			shift_flag = -1;
-		}
-	}
-	//*****************//
-	
-	// CHECKING FOR BREAK
-	if ((ascii_data == 0) && (PS2_data != 0x8012)) {
-		seen_flag = 1;
-		return;
-	}
-	
-	// DRAWING CHARACTERS
-	if ((seen_flag == 0) && (PS2_data != 0x8012)) {
-		char data[2];
-		data[0] = ascii_data;
-		data[1] = '\0';
-		
-		// TAB FUNCTIONALITY
-		if (ascii_data == 0x09) {
-			if ((where_you_are_x + 4) < 79) {
-				where_you_are_x+=4;
-				all_lines[where_you_are_y] = where_you_are_x;
-			}
-			return;
-		}
-		//********************//
-		
-		// ENTER FUNCTIONALITY
-		if (ascii_data == 0x0D) {
-			if (where_you_are_y < 60) {
-				all_lines[where_you_are_y] = where_you_are_x;
-				where_you_are_y++;
-				where_you_are_x = 0;
-			}
-			return;
-		}
-		//********************//
-		
-		// BACKSPACE FUNCTIONALITY
-		if (ascii_data == 0x08) {
-			if (where_you_are_x > 0) {
-				where_you_are_x--;
-				all_lines[where_you_are_y] = where_you_are_x;
-			}
-			else {
-				if (where_you_are_y > 0) {
+			if (where_you_are_y > 0) {
+				if (key_flag == 0) {
 					where_you_are_y--;
 					where_you_are_x = all_lines[where_you_are_y];
-				}
+					key_flag = 1;
+				} else
+					key_flag = 0;
 			}
-			
-			int offset = (where_you_are_y << 7) + where_you_are_x;
+		}
+	}
+	else if (PS2_data == 0x8074) { // right 
+	 if (where_you_are_x < 60) {
+		 if (key_flag == 0) {
+			 where_you_are_x++;
+			 all_lines[where_you_are_y] = where_you_are_x;
+			 key_flag = 1;
+		 } else
+			 key_flag = 0;
+	 }
+	 else {
+		 if (where_you_are_y < 60) {
+			 if (key_flag == 0) {
+				 where_you_are_y++;
+			 	where_you_are_x = all_lines[where_you_are_y];
+				 key_flag = 1;
+			 } else
+				 key_flag = 0;
+		 }
+	 }
+	}
+	else if (PS2_data == 0x8075) { // up
+	 if (where_you_are_y > 0) {
+		 if (key_flag == 0) {
+		 	 where_you_are_y--;
+			 key_flag = 1;
+		 } else
+			 key_flag = 0;
+	 }
+	}
+	else if (PS2_data == 0x8072) { // down
+	 if (where_you_are_y < 60) {
+		 if (key_flag == 0) {
+		 	 where_you_are_y++;
+			 key_flag = 1;
+		 } else
+			 key_flag = 0;
+	 }
+	}
+    
+    //*****************//
+    
+    // MANIPULATING SHIFT
+    if (PS2_data == 0x8012 && shift == 0) {
+        if (shift_flag == -1)
+            shift_flag = 0;
+        else
+            shift = 1;          
+    }
+    else if (PS2_data == 0x8012 && shift == 1) {
+        if (shift_flag == 0) 
+            shift_flag = 1;
+        else {
+            shift = 0;
+            shift_flag = -1;
+        }
+    }
+    //*****************//
+    
+    // CHECKING FOR BREAK
+    if ((ascii_data == 0) && (PS2_data != 0x8012)) {
+        seen_flag = 1;
+        return;
+    }
+    
+    // DRAWING CHARACTERS
+    if ((seen_flag == 0) && (PS2_data != 0x8012)) {
+        char data[2];
+        data[0] = ascii_data;
+        data[1] = '\0';
+        
+        // TAB FUNCTIONALITY
+        if (ascii_data == 0x09) {
+            if ((where_you_are_x + 4) < 79) {
+                where_you_are_x+=4;
+                all_lines[where_you_are_y] = where_you_are_x;
+            }
+            return;
+        }
+        //********************//
+        
+        // ENTER FUNCTIONALITY
+        if (ascii_data == 0x0D) {
+            if (where_you_are_y < 60) {
+                all_lines[where_you_are_y] = where_you_are_x;
+                where_you_are_y++;
+                where_you_are_x = 0;
+            }
+            return;
+        }
+        //********************//
+        
+        // BACKSPACE FUNCTIONALITY
+        if (ascii_data == 0x08) {
+            if (where_you_are_x > 0) {
+                where_you_are_x--;
+                all_lines[where_you_are_y] = where_you_are_x;
+            }
+            else {
+                if (where_you_are_y > 0) {
+                    where_you_are_y--;
+                    where_you_are_x = all_lines[where_you_are_y];
+                }
+            }
+            
+            int offset = (where_you_are_y << 7) + where_you_are_x;
             *(character_buffer + offset) = 0;
-			return;
-		}
-		//******************//
-		
-		// NORMAL CHARACTERS
-		plot_string(where_you_are_x, where_you_are_y, data);
-		if (where_you_are_x < 79) {
-			where_you_are_x++;
-			all_lines[where_you_are_y] = where_you_are_x;
-		} else {
-			where_you_are_x = 0;
-			where_you_are_y++;
-		}
-		//****************//
-	} else
-		seen_flag = 0;
+            return;
+        }
+        //******************//
+        
+        // NORMAL CHARACTERS
+        plot_string(where_you_are_x, where_you_are_y, data);
+        if (where_you_are_x < 79) {
+            where_you_are_x++;
+            all_lines[where_you_are_y] = where_you_are_x;
+        } else {
+            where_you_are_x = 0;
+            where_you_are_y++;
+        }
+        //****************//
+    } else
+        seen_flag = 0;
 }
 
 void __attribute__ ((interrupt)) __cs3_isr_irq () {
-	int interrupt_ID = *((int *) 0xFFFEC10C);
-	if (interrupt_ID == 79) {
-		PS2_ISR();
-	} else
-		while (1);
+    int interrupt_ID = *((int *) 0xFFFEC10C);
+    if (interrupt_ID == 79) {
+        PS2_ISR();
+    } else
+        while (1);
 
-	*((int *) 0xFFFEC110) = interrupt_ID;
+    *((int *) 0xFFFEC110) = interrupt_ID;
 }
 
 void set_A9_IRQ_stack() {
-	int stack, mode;
-	stack = 0xFFFFFFFF - 7;
+    int stack, mode;
+    stack = 0xFFFFFFFF - 7;
 
-	mode = 0b11010010;
-	asm("msr cpsr, %[ps]" : : [ps] "r" (mode));
-	asm("mov sp, %[ps]" : : [ps] "r" (stack));
-	mode = 0b11010011;
-	asm("msr cpsr, %[ps]" : : [ps] "r" (mode));
+    mode = 0b11010010;
+    asm("msr cpsr, %[ps]" : : [ps] "r" (mode));
+    asm("mov sp, %[ps]" : : [ps] "r" (stack));
+    mode = 0b11010011;
+    asm("msr cpsr, %[ps]" : : [ps] "r" (mode));
 }
 
 void plot_pixel(int x, int y, short int line_color) {
@@ -334,11 +362,11 @@ void clear_screen_w() {
 
 void plot_string(int x, int y, char *text_ptr) {
     int offset = (y << 7) + x;
-    	while (*(text_ptr)) {
-        	*(character_buffer + offset) = *(text_ptr);
-        	text_ptr++;
-        	offset++;
-    	}
+        while (*(text_ptr)) {
+            *(character_buffer + offset) = *(text_ptr);
+            text_ptr++;
+            offset++;
+        }
 }
 
 void clear_characters() {
@@ -354,21 +382,21 @@ void clear_characters() {
 int main(void) {
     volatile int * pixel_ctrl_ptr = (int *)0xFF203020;
     pixel_buffer_start = *pixel_ctrl_ptr;
-	character_buffer = (char *) 0xC9000000;
-	
+    character_buffer = (char *) 0xC9000000;
+    
     clear_screen();
-	clear_characters();
+    clear_characters();
 
-	set_A9_IRQ_stack();
-	config_GIC();
-	config_PS2s();
-	enable_A9_interrupts();
-	
-	where_you_are_x = 0;
-	where_you_are_y = 0;
+    set_A9_IRQ_stack();
+    config_GIC();
+    config_PS2s();
+    enable_A9_interrupts();
+    
+    where_you_are_x = 0;
+    where_you_are_y = 0;
 
-	while (1) {}
-	
-	
+    while (1) {}
+    
+    
     return 0;
 }
