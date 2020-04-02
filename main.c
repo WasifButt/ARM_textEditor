@@ -17,7 +17,7 @@ void clear_characters();
 volatile int pixel_buffer_start;
 volatile char *character_buffer;
 int where_you_are_x, where_you_are_y;
-int seen_flag = 0, shift = 0, shift_flag = 0, key_flag = 0;
+int seen_flag = 0, shift = 0, shift_flag = 0, key_flag = 0, bs_flag = 0;
 int all_lines[60] = {0};
 
 // converts PS/2 input data to ASCII for printing 
@@ -174,6 +174,38 @@ void PS2_ISR() {
     PS2_data = *(PS2_ptr);
 
     int ascii_data = ps2_to_ascii(PS2_data, shift);
+	
+	char buffer[10];
+	itoa(PS2_data, buffer, 16);
+	plot_string(30, 30, buffer);
+	
+	// BACKSPACE FUNCTIONALITY
+        if (ascii_data == 0x08) {
+            if (where_you_are_x > 0) {
+				if (bs_flag == 0) {
+					where_you_are_x--;
+                	all_lines[where_you_are_y] = where_you_are_x;
+					bs_flag = 1;
+				} else
+					bs_flag = 0;
+            }
+            else {
+                if (where_you_are_y > 0) {
+					if (bs_flag == 0) {
+						where_you_are_y--;
+						where_you_are_x = all_lines[where_you_are_y];
+						bs_flag = 1;
+					} else
+						bs_flag = 0;
+                }
+            }
+            if (bs_flag) {
+				int offset = (where_you_are_y << 7) + where_you_are_x;
+				*(character_buffer + offset) = 0;
+			}
+            return;
+        }
+        //******************//
     
     // ARROW KEY FUNCTIONALITY
 	if (PS2_data == 0x806B) { // left
@@ -196,44 +228,43 @@ void PS2_ISR() {
 		}
 	}
 	else if (PS2_data == 0x8074) { // right 
-	 if (where_you_are_x < 60) {
-		 if (key_flag == 0) {
-			 where_you_are_x++;
-			 all_lines[where_you_are_y] = where_you_are_x;
-			 key_flag = 1;
-		 } else
-			 key_flag = 0;
-	 }
-	 else {
-		 if (where_you_are_y < 60) {
+		if (where_you_are_x < 60) {
 			 if (key_flag == 0) {
-				 where_you_are_y++;
-			 	where_you_are_x = all_lines[where_you_are_y];
+				 where_you_are_x++;
+				 all_lines[where_you_are_y] = where_you_are_x;
 				 key_flag = 1;
 			 } else
 				 key_flag = 0;
 		 }
-	 }
+		 else {
+			 if (where_you_are_y < 60) {
+				 if (key_flag == 0) {
+					 where_you_are_y++;
+					where_you_are_x = all_lines[where_you_are_y];
+					 key_flag = 1;
+				 } else
+					 key_flag = 0;
+			 }
+		 }
 	}
 	else if (PS2_data == 0x8075) { // up
-	 if (where_you_are_y > 0) {
-		 if (key_flag == 0) {
-		 	 where_you_are_y--;
-			 key_flag = 1;
-		 } else
-			 key_flag = 0;
-	 }
+		 if (where_you_are_y > 0) {
+			 if (key_flag == 0) {
+				 where_you_are_y--;
+				 key_flag = 1;
+			 } else
+				 key_flag = 0;
+		 }
 	}
 	else if (PS2_data == 0x8072) { // down
-	 if (where_you_are_y < 60) {
-		 if (key_flag == 0) {
-		 	 where_you_are_y++;
-			 key_flag = 1;
-		 } else
-			 key_flag = 0;
-	 }
+		 if (where_you_are_y < 60) {
+			 if (key_flag == 0) {
+				 where_you_are_y++;
+				 key_flag = 1;
+			 } else
+				 key_flag = 0;
+		 }
 	}
-    
     //*****************//
     
     // MANIPULATING SHIFT
@@ -285,25 +316,6 @@ void PS2_ISR() {
             return;
         }
         //********************//
-        
-        // BACKSPACE FUNCTIONALITY
-        if (ascii_data == 0x08) {
-            if (where_you_are_x > 0) {
-                where_you_are_x--;
-                all_lines[where_you_are_y] = where_you_are_x;
-            }
-            else {
-                if (where_you_are_y > 0) {
-                    where_you_are_y--;
-                    where_you_are_x = all_lines[where_you_are_y];
-                }
-            }
-            
-            int offset = (where_you_are_y << 7) + where_you_are_x;
-            *(character_buffer + offset) = 0;
-            return;
-        }
-        //******************//
         
         // NORMAL CHARACTERS
         plot_string(where_you_are_x, where_you_are_y, data);
