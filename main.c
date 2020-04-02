@@ -174,97 +174,143 @@ void PS2_ISR() {
     PS2_data = *(PS2_ptr);
 
     int ascii_data = ps2_to_ascii(PS2_data, shift);
-	
-	char buffer[10];
-	itoa(PS2_data, buffer, 16);
-	plot_string(30, 30, buffer);
-	
-	// BACKSPACE FUNCTIONALITY
+    
+    // char buffer[10];
+    // itoa(PS2_data, buffer, 16);
+    // plot_string(30, 30, buffer);
+    
+    // BACKSPACE FUNCTIONALITY
         if (ascii_data == 0x08) {
             if (where_you_are_x > 0) {
-				if (bs_flag == 0) {
-					where_you_are_x--;
-                	all_lines[where_you_are_y] = where_you_are_x;
-					bs_flag = 1;
-				} else
-					bs_flag = 0;
+                if (bs_flag == 0) {
+                    int offset = (where_you_are_y << 7) + where_you_are_x;
+                    *(character_buffer + offset) = 0;
+                    where_you_are_x--;
+                    all_lines[where_you_are_y] = where_you_are_x;
+                    bs_flag = 1;
+                } else
+                    bs_flag = 0;
             }
             else {
                 if (where_you_are_y > 0) {
-					if (bs_flag == 0) {
-						where_you_are_y--;
-						where_you_are_x = all_lines[where_you_are_y];
-						bs_flag = 1;
-					} else
-						bs_flag = 0;
+                    if (bs_flag == 0) {
+                        int offset = (where_you_are_y << 7) + where_you_are_x;
+                        *(character_buffer + offset) = 0;
+                        where_you_are_y--;
+                        where_you_are_x = all_lines[where_you_are_y];
+                        bs_flag = 1;
+
+                    } else
+                        bs_flag = 0;
                 }
             }
             if (bs_flag) {
-				int offset = (where_you_are_y << 7) + where_you_are_x;
-				*(character_buffer + offset) = 0;
-			}
+                int offset = (where_you_are_y << 7) + where_you_are_x;
+                *(character_buffer + offset) = 0;
+                //*(character_buffer + offset + 1) = 0;
+                char data[2];
+                data[0] = 0x3C;
+                data[1] = '\0';
+                plot_string(where_you_are_x, where_you_are_y, data);
+            }
             return;
         }
         //******************//
     
     // ARROW KEY FUNCTIONALITY
-	if (PS2_data == 0x806B) { // left
-		if (where_you_are_x > 0) {
-			if (key_flag == 0) {
-			 where_you_are_x--;
-			 key_flag = 1;
-		 } else
-			 key_flag = 0;
-		}
-		else {
-			if (where_you_are_y > 0) {
-				if (key_flag == 0) {
-					where_you_are_y--;
-					where_you_are_x = all_lines[where_you_are_y];
-					key_flag = 1;
-				} else
-					key_flag = 0;
-			}
-		}
-	}
-	else if (PS2_data == 0x8074) { // right 
-		if (where_you_are_x < 60) {
-			 if (key_flag == 0) {
-				 where_you_are_x++;
-				 all_lines[where_you_are_y] = where_you_are_x;
-				 key_flag = 1;
-			 } else
-				 key_flag = 0;
-		 }
-		 else {
-			 if (where_you_are_y < 60) {
-				 if (key_flag == 0) {
-					 where_you_are_y++;
-					where_you_are_x = all_lines[where_you_are_y];
-					 key_flag = 1;
-				 } else
-					 key_flag = 0;
-			 }
-		 }
-	}
-	else if (PS2_data == 0x8075) { // up
-		 if (where_you_are_y > 0) {
-			 if (key_flag == 0) {
-				 where_you_are_y--;
-				 key_flag = 1;
-			 } else
-				 key_flag = 0;
-		 }
-	}
-	else if (PS2_data == 0x8072) { // down
-		 if (where_you_are_y < 60) {
-			 if (key_flag == 0) {
-				 where_you_are_y++;
-				 key_flag = 1;
-			 } else
-				 key_flag = 0;
-		 }
-	}
+    if (PS2_data == 0x806B) { // left
+        if (where_you_are_x > 0) {
+            if (key_flag == 0) {
+                int offset = (where_you_are_y << 7) + where_you_are_x;
+                *(character_buffer + offset) = 0;
+                where_you_are_x--;
+                key_flag = 1;
+                char data[2];
+                data[0] = 0x3C;
+                data[1] = '\0';
+                plot_string(where_you_are_x, where_you_are_y, data);
+            } else
+                key_flag = 0;
+        }
+        else {
+            if (where_you_are_y > 0) {
+                if (key_flag == 0) {
+                    int offset = (where_you_are_y << 7) + where_you_are_x;
+                    *(character_buffer + offset) = 0;
+                    where_you_are_y--;
+                    where_you_are_x = all_lines[where_you_are_y];
+                    key_flag = 1;
+                    char data[2];
+                    data[0] = 0x3C;
+                    data[1] = '\0';
+                    plot_string(where_you_are_x, where_you_are_y, data);
+                } else
+                    key_flag = 0;
+            }
+        }
+    }
+    else if (PS2_data == 0x8074) { // right 
+        if (where_you_are_x < 60) {
+            if (key_flag == 0) {
+                int offset = (where_you_are_y << 7) + where_you_are_x;
+                *(character_buffer + offset) = 0;
+                where_you_are_x++;
+                all_lines[where_you_are_y] = where_you_are_x;
+                key_flag = 1;
+                char data[2];
+                data[0] = 0x3C;
+                data[1] = '\0';
+                plot_string(where_you_are_x, where_you_are_y, data);
+            } else
+                 key_flag = 0;
+        }
+         else {
+             if (where_you_are_y < 60) {
+                if (key_flag == 0) {
+                    int offset = (where_you_are_y << 7) + where_you_are_x;
+                    *(character_buffer + offset) = 0;
+                    where_you_are_y++;
+                    where_you_are_x = all_lines[where_you_are_y];
+                    key_flag = 1;
+                    char data[2];
+                    data[0] = 0x3C;
+                    data[1] = '\0';
+                    plot_string(where_you_are_x, where_you_are_y, data);
+                } else
+                    key_flag = 0;
+            }
+         }
+    }
+    else if (PS2_data == 0x8075) { // up
+         if (where_you_are_y > 0) {
+            if (key_flag == 0) {
+                int offset = (where_you_are_y << 7) + where_you_are_x;
+                *(character_buffer + offset) = 0;
+                where_you_are_y--;
+                key_flag = 1;
+                char data[2];
+                data[0] = 0x3C;
+                data[1] = '\0';
+                plot_string(where_you_are_x, where_you_are_y, data);
+            } else
+                 key_flag = 0;
+         }
+    }
+    else if (PS2_data == 0x8072) { // down
+        if (where_you_are_y < 60) {
+            if (key_flag == 0) {
+                int offset = (where_you_are_y << 7) + where_you_are_x;
+                *(character_buffer + offset) = 0;
+                where_you_are_y++;
+                key_flag = 1;
+                char data[2];
+                data[0] = 0x3C;
+                data[1] = '\0';
+                plot_string(where_you_are_x, where_you_are_y, data);
+            } else
+                key_flag = 0;
+        }
+    }
     //*****************//
     
     // MANIPULATING SHIFT
@@ -292,15 +338,22 @@ void PS2_ISR() {
     
     // DRAWING CHARACTERS
     if ((seen_flag == 0) && (PS2_data != 0x8012)) {
-        char data[2];
+        char data[3];
         data[0] = ascii_data;
-        data[1] = '\0';
+        data[1] = 0x3C;
+        data[2] = '\0';
         
         // TAB FUNCTIONALITY
         if (ascii_data == 0x09) {
             if ((where_you_are_x + 4) < 79) {
+                int offset = (where_you_are_y << 7) + where_you_are_x;
+                *(character_buffer + offset) = 0;
                 where_you_are_x+=4;
                 all_lines[where_you_are_y] = where_you_are_x;
+
+                data[0] = 0x3C;
+                data[1] = '\0';
+                plot_string(where_you_are_x, where_you_are_y, data);
             }
             return;
         }
@@ -308,10 +361,17 @@ void PS2_ISR() {
         
         // ENTER FUNCTIONALITY
         if (ascii_data == 0x0D) {
-            if (where_you_are_y < 60) {
+            if (where_you_are_y < 59) {
+                int offset = (where_you_are_y << 7) + where_you_are_x;
+                *(character_buffer + offset) = 0;
+                
                 all_lines[where_you_are_y] = where_you_are_x;
                 where_you_are_y++;
                 where_you_are_x = 0;
+
+                data[0] = 0x3C;
+                data[1] = '\0';
+                plot_string(where_you_are_x, where_you_are_y, data);
             }
             return;
         }
@@ -406,6 +466,11 @@ int main(void) {
     
     where_you_are_x = 0;
     where_you_are_y = 0;
+
+    char data[2];
+    data[0] = 0x3C;
+    data[1] = '\0';
+    plot_string(where_you_are_x, where_you_are_y, data);
 
     while (1) {}
     
