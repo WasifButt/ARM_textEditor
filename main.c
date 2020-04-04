@@ -637,6 +637,7 @@ void PS2_ISR() {
         // ENTER FUNCTIONALITY
         if (ascii_data == 0x0D) {
             if (where_you_are_y < 59) {
+                // get rid of cursor
                 int offset = (where_you_are_y << 7) + where_you_are_x;
                 *(character_buffer + offset) = 0;
                 
@@ -652,8 +653,15 @@ void PS2_ISR() {
         //********************//
         
         // NORMAL CHARACTERS
-        plot_string(where_you_are_x, where_you_are_y, data);
         if (where_you_are_x < 79) {
+
+            for (int i = all_lines[where_you_are_y] + 1; i > where_you_are_x; i--) {
+                int offset = (where_you_are_y << 7) + i;
+                *(character_buffer + offset) = *(character_buffer + offset - 1);
+            }
+
+            plot_string(where_you_are_x, where_you_are_y, data);
+
             where_you_are_x++;
             all_lines[where_you_are_y] = all_lines[where_you_are_y] + 1;
         } else {
