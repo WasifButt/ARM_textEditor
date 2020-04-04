@@ -217,10 +217,21 @@ void PS2_ISR() {
         seen_flag = 0;
         if (where_you_are_x > 0) {
             if (bs_flag == 0) {
+                // erase the chracter where you are
                 int offset = (where_you_are_y << 7) + where_you_are_x;
                 *(character_buffer + offset) = 0;
+
+                for (int i = 0; i < all_lines[where_you_are_y] + 1; i++) {
+                    offset = (where_you_are_y << 7) + where_you_are_x + i;
+                    *(character_buffer + offset - 1) = *(character_buffer + offset);
+                }
+
+                offset = (where_you_are_y << 7) + where_you_are_x + all_lines[where_you_are_y];
+                *(character_buffer + offset) = 0;
+
                 where_you_are_x--;
-                all_lines[where_you_are_y] = where_you_are_x;
+                all_lines[where_you_are_y] = all_lines[where_you_are_y] - 1;
+
                 bs_flag = 1;
             } else
                 bs_flag = 0;
@@ -230,8 +241,10 @@ void PS2_ISR() {
                 if (bs_flag == 0) {
                     int offset = (where_you_are_y << 7) + where_you_are_x;
                     *(character_buffer + offset) = 0;
+
                     where_you_are_y--;
                     where_you_are_x = all_lines[where_you_are_y];
+
                     bs_flag = 1;
                 } else
                     bs_flag = 0;
@@ -240,7 +253,7 @@ void PS2_ISR() {
         if (bs_flag) {
             int offset = (where_you_are_y << 7) + where_you_are_x;
             *(character_buffer + offset) = 0;
-            //*(character_buffer + offset + 1) = 0;
+
             char data[2];
             data[0] = 0x3C;
             data[1] = '\0';
@@ -249,6 +262,7 @@ void PS2_ISR() {
         return;
     }
     //******************//
+
     // CTRL COPY 
     if (ctrl && PS2_data == 0x8021) {
         int lower_bound, upper_bound;
@@ -344,16 +358,20 @@ void PS2_ISR() {
         } else key_flag = 0; 
     }
     //******************//
+
     // ARROW KEY FUNCTIONALITY
     if (PS2_data == 0x806B) { // left
         if (!ctrl) {
             if (where_you_are_x > 0) {
                 if (key_flag == 0) {
+                    // put the old char back where cursor was and store new char
                     int offset = (where_you_are_y << 7) + where_you_are_x;
                     *(character_buffer + offset) = temp_char;
                     temp_char = *(character_buffer + offset - 1);
+
                     where_you_are_x--;
                     key_flag = 1;
+
                     char data[2];
                     data[0] = 0x3C;
                     data[1] = '\0';
@@ -420,7 +438,6 @@ void PS2_ISR() {
                     temp_char = *(character_buffer + offset + 1);
                     where_you_are_x++;
 
-                    all_lines[where_you_are_y] = where_you_are_x;
                     key_flag = 1;
 
                     char data[2];
@@ -623,7 +640,6 @@ void PS2_ISR() {
                 int offset = (where_you_are_y << 7) + where_you_are_x;
                 *(character_buffer + offset) = 0;
                 
-                all_lines[where_you_are_y] = where_you_are_x;
                 where_you_are_y++;
                 where_you_are_x = 0;
 
@@ -639,7 +655,7 @@ void PS2_ISR() {
         plot_string(where_you_are_x, where_you_are_y, data);
         if (where_you_are_x < 79) {
             where_you_are_x++;
-            all_lines[where_you_are_y] = where_you_are_x;
+            all_lines[where_you_are_y] = all_lines[where_you_are_y] + 1;
         } else {
             where_you_are_x = 0;
             where_you_are_y++;
@@ -757,6 +773,10 @@ void clear_characters() {
             offset++;
         }
     }
+}
+
+void shift_chars_left() {
+
 }
 
 int main(void) {
