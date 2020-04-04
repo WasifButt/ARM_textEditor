@@ -69,7 +69,6 @@ int ps2_to_ascii (int ps2, int shift) {
         else if (ps2 == 0x803E) return 0x2A; // *
         else if (ps2 == 0x8055) return 0x2B; // +
         else if (ps2 == 0x804C) return 0x3A; // :
-        else if (ps2 == 0x8041) return 0x3C; // <
         else if (ps2 == 0x8049) return 0x3E; // >
         else if (ps2 == 0x804A) return 0x3F; // ?
         else if (ps2 == 0x801E) return 0x40; // @
@@ -251,6 +250,7 @@ void PS2_ISR() {
     //******************//
     // CTRL COPY 
     if (ctrl && PS2_data == 0x8021) {
+        int lower_bound, upper_bound;
         if (key_flag == 0) {
             key_flag = 1; 
             if (size > 0)
@@ -264,9 +264,16 @@ void PS2_ISR() {
 
             copy = (char *)malloc(size * sizeof(char));
             for (int i = start_y; i < end_y + 1; i++) {
-                for (int j = start_x; j < end_x; j++) {
+                if (start_y == end_y) {lower_bound = start_x; upper_bound = end_x;}
+                else if (i == start_y) {lower_bound = start_x; upper_bound = 80;}
+                else if (i == end_y) {lower_bound = 0; end_x = upper_bound;}
+                else {lower_bound = 0; upper_bound = 80;}
+                for (int j = lower_bound; j < upper_bound; j++) {
                     int offset = (i << 7) + j;
-                    copy[k] = *(character_buffer + offset); 
+                    if (*(character_buffer + offset) != '<')
+                        copy[k] = *(character_buffer + offset); 
+                    else 
+                        copy[k] = ' ';
                     k++;
                 }
             }
@@ -274,6 +281,7 @@ void PS2_ISR() {
     }
     // CTRL CUT
     if (ctrl && PS2_data == 0x8022) {
+        int lower_bound, upper_bound;
         if (key_flag == 0) {
             key_flag = 1; 
             if (size > 0)
@@ -287,13 +295,26 @@ void PS2_ISR() {
 
             copy = (char *)malloc(size * sizeof(char));
             for (int i = start_y; i < end_y + 1; i++) {
-                for (int j = start_x; j < end_x; j++) {
+                if (start_y == end_y) {lower_bound = start_x; upper_bound = end_x;}
+                else if (i == start_y) {lower_bound = start_x; upper_bound = 80;}
+                else if (i == end_y) {lower_bound = 0; end_x = upper_bound;}
+                else {lower_bound = 0; upper_bound = 80;}
+                for (int j = lower_bound; j < upper_bound; j++) {
                     int offset = (i << 7) + j;
-                    copy[k] = *(character_buffer + offset); 
+                    if (*(character_buffer + offset) != '<')
+                        copy[k] = *(character_buffer + offset); 
+                    else 
+                        copy[k] = ' ';
                     *(character_buffer + offset) = 0;
                     k++;
                 }
             }
+            where_you_are_x = start_x;
+            where_you_are_y = start_y; 
+            char data[2];
+            data[0] = 0x3C;
+            data[1] = '\0';
+            plot_string(where_you_are_x, where_you_are_y, data);
         } else key_flag = 0; 
     }
     // CTRL PASTE 
@@ -303,17 +324,22 @@ void PS2_ISR() {
             key_flag = 1; 
             int j = where_you_are_x; 
             for (int i = 0; i < size; i++){
-                if (j > 80) {
+                if (j > 79) {
                     k++; 
                     j = 0; 
                 }
                 char data [1];
                 data [0] = copy[i];
-                plot_string(j, where_you_are_y + k, data);
+                if (data[0] != '<')
+                        plot_string(j, where_you_are_y + k, data);
                 j++; 
             }
             where_you_are_x = j;
             where_you_are_y = where_you_are_y + k; 
+            char data[2];
+            data[0] = 0x3C;
+            data[1] = '\0';
+            plot_string(where_you_are_x, where_you_are_y, data);
         } else key_flag = 0; 
     }
     //******************//
