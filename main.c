@@ -182,9 +182,12 @@ void PS2_ISR() {
     PS2_data = *(PS2_ptr);
 
     int ascii_data = ps2_to_ascii(PS2_data, shift);
-    // char buffer[10];
-    // itoa(PS2_data, buffer, 16);
-    // plot_string(30, 30, buffer);
+
+        // CHECKING FOR BREAK
+    if ((ascii_data == 0) && (PS2_data != 0x8012)) {
+        seen_flag = 1;
+        return;
+    }
     
     // MANIPULATING CTRL
     if (PS2_data == 0x8014 && ctrl == false) {
@@ -210,10 +213,12 @@ void PS2_ISR() {
         for (int i = start_y; i < end_y + 4; i++)
             draw_line(80 *4, i *4, 0 *4, i*4, 0x0000);
     }
+
     //*****************//
 
     // BACKSPACE FUNCTIONALITY
     if (ascii_data == 0x08 && !ctrl) {
+        seen_flag = 0;
         if (where_you_are_x > 0) {
             if (bs_flag == 0) {
                 int offset = (where_you_are_y << 7) + where_you_are_x;
@@ -236,10 +241,10 @@ void PS2_ISR() {
                     bs_flag = 0;
             }
         }
+
         if (bs_flag) {
             int offset = (where_you_are_y << 7) + where_you_are_x;
             *(character_buffer + offset) = 0;
-            //*(character_buffer + offset + 1) = 0;
             char data[2];
             data[0] = 0x3C;
             data[1] = '\0';
@@ -247,6 +252,7 @@ void PS2_ISR() {
         }
         return;
     }
+
     //******************//
     // CTRL COPY 
     if (ctrl && PS2_data == 0x8021) {
@@ -279,6 +285,7 @@ void PS2_ISR() {
             }
         } else key_flag = 0;
     }
+
     // CTRL CUT
     if (ctrl && PS2_data == 0x8022) {
         int lower_bound, upper_bound;
@@ -317,6 +324,7 @@ void PS2_ISR() {
             plot_string(where_you_are_x, where_you_are_y, data);
         } else key_flag = 0; 
     }
+
     // CTRL PASTE 
     if (ctrl && PS2_data == 0x802A) {
         if (key_flag == 0) {
@@ -587,12 +595,6 @@ void PS2_ISR() {
     }
     //*****************//
     
-    // CHECKING FOR BREAK
-    if ((ascii_data == 0) && (PS2_data != 0x8012)) {
-        seen_flag = 1;
-        return;
-    }
-    
     // DRAWING CHARACTERS
     if ((seen_flag == 0) && (PS2_data != 0x8012) && ascii_data != 1 && !ctrl) {
         char data[3];
@@ -722,7 +724,6 @@ void swap(int* val1, int* val2) {
     *val2 = temp;
 }
 
-
 void clear_screen() {
     for (int x = 0; x < 320; x++) {
         for (int y = 0; y < 240; y++) {
@@ -780,7 +781,6 @@ int main(void) {
     plot_string(where_you_are_x, where_you_are_y, data);
 
     while (1) {}
-    
     
     return 0;
 }
