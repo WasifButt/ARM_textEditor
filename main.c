@@ -183,77 +183,7 @@ void PS2_ISR() {
 
     int ascii_data = ps2_to_ascii(PS2_data, shift);
 
-        // CHECKING FOR BREAK
-    if ((ascii_data == 0) && (PS2_data != 0x8012)) {
-        seen_flag = 1;
-        return;
-    }
-    
-    // MANIPULATING CTRL
-    if (PS2_data == 0x8014 && ctrl == false) {
-        if (ctrl_flag == -1)
-            ctrl_flag = 0;
-        else
-            ctrl = 1;       
-        ctrl_ptr_x = where_you_are_x;
-        ctrl_ptr_y = where_you_are_y;
-        end_x = ctrl_ptr_x;
-        start_x = ctrl_ptr_x; 
-    }
-    else if (PS2_data == 0x8014 && ctrl == true) {
-        if (ctrl_flag == 0) 
-            ctrl_flag = 1;
-        else {
-            ctrl = 0;
-            ctrl_flag = -1;
-        }
-        // if (ctrl_ptr_y <= where_you_are_y) {start_y = ctrl_ptr_y; end_y = where_you_are_y; }
-        // else {start_y = where_you_are_y; end_y = ctrl_ptr_y; }
-
-        for (int i = start_y; i < end_y + 4; i++)
-            draw_line(80 *4, i *4, 0 *4, i*4, 0x0000);
-    }
-
-    //*****************//
-
-    // BACKSPACE FUNCTIONALITY
-    if (ascii_data == 0x08 && !ctrl) {
-        seen_flag = 0;
-        if (where_you_are_x > 0) {
-            if (bs_flag == 0) {
-                int offset = (where_you_are_y << 7) + where_you_are_x;
-                *(character_buffer + offset) = 0;
-                where_you_are_x--;
-                all_lines[where_you_are_y] = where_you_are_x;
-                bs_flag = 1;
-            } else
-                bs_flag = 0;
-        }
-        else {
-            if (where_you_are_y > 0) {
-                if (bs_flag == 0) {
-                    int offset = (where_you_are_y << 7) + where_you_are_x;
-                    *(character_buffer + offset) = 0;
-                    where_you_are_y--;
-                    where_you_are_x = all_lines[where_you_are_y];
-                    bs_flag = 1;
-                } else
-                    bs_flag = 0;
-            }
-        }
-
-        if (bs_flag) {
-            int offset = (where_you_are_y << 7) + where_you_are_x;
-            *(character_buffer + offset) = 0;
-            char data[2];
-            data[0] = 0x3C;
-            data[1] = '\0';
-            plot_string(where_you_are_x, where_you_are_y, data);
-        }
-        return;
-    }
-
-    //******************//
+        //******************//
     // CTRL COPY 
     if (ctrl && PS2_data == 0x8021) {
         int lower_bound, upper_bound;
@@ -594,6 +524,77 @@ void PS2_ISR() {
         }
     }
     //*****************//
+
+    // CHECKING FOR BREAK
+    if ((ascii_data == 0) && (PS2_data != 0x8012)) {
+        seen_flag = 1;
+        return;
+    }
+
+        // MANIPULATING CTRL
+    if (PS2_data == 0x8014 && ctrl == false) {
+        seen_flag = false;
+        if (ctrl_flag == -1)
+            ctrl_flag = 0;
+        else
+            ctrl = 1;       
+        ctrl_ptr_x = where_you_are_x;
+        ctrl_ptr_y = where_you_are_y;
+        end_x = ctrl_ptr_x;
+        start_x = ctrl_ptr_x; 
+    }
+    else if (PS2_data == 0x8014 && ctrl == true) {
+        if (ctrl_flag == 0) 
+            ctrl_flag = 1;
+        else {
+            ctrl = 0;
+            ctrl_flag = -1;
+        }
+        // if (ctrl_ptr_y <= where_you_are_y) {start_y = ctrl_ptr_y; end_y = where_you_are_y; }
+        // else {start_y = where_you_are_y; end_y = ctrl_ptr_y; }
+
+        for (int i = start_y; i < end_y + 4; i++)
+            draw_line(80 *4, i *4, 0 *4, i*4, 0x0000);
+    }
+
+    //*****************//
+
+    // BACKSPACE FUNCTIONALITY
+    if (ascii_data == 0x08 && !ctrl) {
+        seen_flag = 0;
+        if (where_you_are_x > 0) {
+            if (bs_flag == 0) {
+                int offset = (where_you_are_y << 7) + where_you_are_x;
+                *(character_buffer + offset) = 0;
+                where_you_are_x--;
+                all_lines[where_you_are_y] = where_you_are_x;
+                bs_flag = 1;
+            } else
+                bs_flag = 0;
+        }
+        else {
+            if (where_you_are_y > 0) {
+                if (bs_flag == 0) {
+                    int offset = (where_you_are_y << 7) + where_you_are_x;
+                    *(character_buffer + offset) = 0;
+                    where_you_are_y--;
+                    where_you_are_x = all_lines[where_you_are_y];
+                    bs_flag = 1;
+                } else
+                    bs_flag = 0;
+            }
+        }
+
+        if (bs_flag) {
+            int offset = (where_you_are_y << 7) + where_you_are_x;
+            *(character_buffer + offset) = 0;
+            char data[2];
+            data[0] = 0x3C;
+            data[1] = '\0';
+            plot_string(where_you_are_x, where_you_are_y, data);
+        }
+        return;
+    }
     
     // DRAWING CHARACTERS
     if ((seen_flag == 0) && (PS2_data != 0x8012) && ascii_data != 1 && !ctrl) {
