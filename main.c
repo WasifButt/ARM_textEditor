@@ -236,7 +236,7 @@ void PS2_ISR() {
             } else
                 bs_flag = 0;
         }
-        else if (!(where_you_are_x < all_lines[where_you_are_y])) {
+        else if (!(all_lines[where_you_are_y] > 0)) {
             if (where_you_are_y > 0) {
                 if (bs_flag == 0) {
                     int offset = (where_you_are_y << 7) + where_you_are_x;
@@ -622,7 +622,17 @@ void PS2_ISR() {
         if (ascii_data == 0x09) {
             if ((where_you_are_x + 4) < 79) {
                 int offset = (where_you_are_y << 7) + where_you_are_x;
-                *(character_buffer + offset) = 0;
+                *(character_buffer + offset) = temp_char;
+
+                for (int i = all_lines[where_you_are_y]; i > where_you_are_x; i--) {
+                    int offset = (where_you_are_y << 7) + i;
+                    *(character_buffer + offset + 3) = *(character_buffer + offset - 1);
+                    *(character_buffer + offset - 1) = 0;
+                }
+
+                // int offset = (where_you_are_y << 7) + where_you_are_x + 4;
+                // *(character_buffer + offset) = temp_char;
+
                 where_you_are_x+=4;
                 all_lines[where_you_are_y] = where_you_are_x;
 
@@ -639,10 +649,13 @@ void PS2_ISR() {
             if (where_you_are_y < 59) {
                 // get rid of cursor
                 int offset = (where_you_are_y << 7) + where_you_are_x;
-                *(character_buffer + offset) = 0;
+                *(character_buffer + offset) = temp_char;
                 
                 where_you_are_y++;
                 where_you_are_x = 0;
+
+                offset = (where_you_are_y << 7) + where_you_are_x;
+                temp_char = *(character_buffer + offset);
 
                 data[0] = 0x3C;
                 data[1] = '\0';
