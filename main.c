@@ -653,19 +653,21 @@ void PS2_ISR() {
         //********************//
         
         // NORMAL CHARACTERS
-        if (where_you_are_x < 79 && (all_lines[where_you_are_y] < 79)) {
-            for (int i = all_lines[where_you_are_y] + 1; i > where_you_are_x; i--) {
-                int offset = (where_you_are_y << 7) + i;
-                *(character_buffer + offset) = *(character_buffer + offset - 1);
+        if (all_lines[where_you_are_y] < 80) {
+            if (where_you_are_x < 79) {
+                for (int i = all_lines[where_you_are_y] + 1; i > where_you_are_x; i--) {
+                    int offset = (where_you_are_y << 7) + i;
+                    *(character_buffer + offset) = *(character_buffer + offset - 1);
+                }
+
+                plot_string(where_you_are_x, where_you_are_y, data);
+
+                where_you_are_x++;
+                all_lines[where_you_are_y] = all_lines[where_you_are_y] + 1;
+            } else {
+                where_you_are_x = 0;
+                where_you_are_y++;
             }
-
-            plot_string(where_you_are_x, where_you_are_y, data);
-
-            where_you_are_x++;
-            all_lines[where_you_are_y] = all_lines[where_you_are_y] + 1;
-        } else {
-            where_you_are_x = 0;
-            where_you_are_y++;
         }
         //****************//
     } else
