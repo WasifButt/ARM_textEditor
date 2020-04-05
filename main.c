@@ -220,6 +220,8 @@ void PS2_ISR() {
                 // erase the chracter where you are
                 int offset = (where_you_are_y << 7) + where_you_are_x;
                 *(character_buffer + offset) = 0;
+                if (where_you_are_x == 79)
+                    *(character_buffer + offset + 1) = 0;
 
                 for (int i = 0; i < all_lines[where_you_are_y] + 1; i++) {
                     offset = (where_you_are_y << 7) + where_you_are_x + i;
@@ -677,9 +679,16 @@ void PS2_ISR() {
 
                 where_you_are_x++;
                 all_lines[where_you_are_y] = all_lines[where_you_are_y] + 1;
-            } else {
+            } else if (where_you_are_x == 79) {
+                plot_string(where_you_are_x, where_you_are_y, data);
+
                 where_you_are_x = 0;
                 where_you_are_y++;
+
+                data[0] = 0x3C;
+                data[1] = '\0';
+                plot_string(where_you_are_x, where_you_are_y, data);
+
             }
         }
         //****************//
