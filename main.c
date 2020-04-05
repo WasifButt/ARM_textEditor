@@ -236,7 +236,7 @@ void PS2_ISR() {
             } else
                 bs_flag = 0;
         }
-        else {
+        else if (!(where_you_are_x < all_lines[where_you_are_y])) {
             if (where_you_are_y > 0) {
                 if (bs_flag == 0) {
                     int offset = (where_you_are_y << 7) + where_you_are_x;
@@ -653,8 +653,7 @@ void PS2_ISR() {
         //********************//
         
         // NORMAL CHARACTERS
-        if (where_you_are_x < 79) {
-
+        if (where_you_are_x < 79 && (all_lines[where_you_are_y] < 79)) {
             for (int i = all_lines[where_you_are_y] + 1; i > where_you_are_x; i--) {
                 int offset = (where_you_are_y << 7) + i;
                 *(character_buffer + offset) = *(character_buffer + offset - 1);
