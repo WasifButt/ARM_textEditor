@@ -450,7 +450,7 @@ void PS2_ISR() {
                     key_flag = 0;
             }
             else {
-                if (where_you_are_y < 60) {
+                if (where_you_are_y < 59) {
                     if (key_flag == 0) {
                         int offset = (where_you_are_y << 7) + where_you_are_x;
                         *(character_buffer + offset) = temp_char;
@@ -482,7 +482,7 @@ void PS2_ISR() {
                     else draw_line(ctrl_ptr_x *4, ctrl_ptr_y *4, (ctrl_ptr_x+1) *4, ctrl_ptr_y*4, 0xF81F);
                 } else key_flag = 0;
             }
-            else if (ctrl_ptr_y < 60) {
+            else if (ctrl_ptr_y < 59) {
                 if (key_flag == 0) {
                     ctrl_ptr_y++;
                     ctrl_ptr_x = all_lines[ctrl_ptr_y];
@@ -546,7 +546,7 @@ void PS2_ISR() {
         }
     }
     else if (PS2_data == 0x8072) { // down
-        if (where_you_are_y < 60 && !ctrl) {
+        if (where_you_are_y < 59 && !ctrl) {
             if (key_flag == 0) {
                 int offset = (where_you_are_y << 7) + where_you_are_x;
                 *(character_buffer + offset) = temp_char;
@@ -561,7 +561,7 @@ void PS2_ISR() {
             } else
                 key_flag = 0;
         }
-        else if (ctrl_ptr_y < 60 && ctrl) { // highlight 
+        else if (ctrl_ptr_y < 59 && ctrl) { // highlight 
             if (key_flag == 0) {
                 ctrl_ptr_y++;
                 key_flag = 1;
@@ -636,7 +636,7 @@ void PS2_ISR() {
                 // *(character_buffer + offset) = temp_char;
 
                 where_you_are_x+=4;
-                all_lines[where_you_are_y] = where_you_are_x;
+                all_lines[where_you_are_y] = all_lines[where_you_are_y] + 4;
 
                 data[0] = 0x3C;
                 data[1] = '\0';
@@ -679,7 +679,7 @@ void PS2_ISR() {
 
                 where_you_are_x++;
                 all_lines[where_you_are_y] = all_lines[where_you_are_y] + 1;
-            } else if (where_you_are_x == 79) {
+            } else if ((where_you_are_x == 79) && (where_you_are_y < 59)) {
                 plot_string(where_you_are_x, where_you_are_y, data);
 
                 where_you_are_x = 0;
