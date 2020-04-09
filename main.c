@@ -13,16 +13,17 @@ void plot_pixel(int x, int y, short int line_color);
 void draw_line(int x0, int y0, int x1, int y1, short int color);
 void swap(int* val1, int* val2);
 void clear_screen();
-void clear_screen_w();
 void plot_string(int x, int y, char *text_ptr);
 void clear_characters();
 
 volatile int pixel_buffer_start;
 volatile char *character_buffer;
+
 int where_you_are_x, where_you_are_y;
 int ctrl_ptr_x, ctrl_ptr_y;
 int seen_flag = 0, shift = 0, shift_flag = 0, key_flag = 0, bs_flag = 0, ctrl_flag = 0;
-int start_y = 0, end_y = 0, start_x = 80; end_x = 80, size = 0;
+int start_y = 0, end_y = 0, start_x = 80; end_x = 80;
+int size = 0;
 int all_lines[60] = {0};
 char temp_char;
 bool ctrl = false; 
@@ -146,52 +147,16 @@ int ps2_to_ascii (int ps2, int shift) {
     }
 }
 
-
-void enable_A9_interrupts() {
-    int status = 0b01010011;
-    asm("msr cpsr, %[ps]" : : [ps]"r"(status));
-}
-
-void config_GIC() {
-    config_interrupt(79, 1);
-    *((int *) 0xFFFEC104) = 0xFFFF;
-    *((int *) 0xFFFEC100) = 1;
-    *((int *) 0xFFFED000) = 1;
-}
-
-void config_interrupt (int N, int CPU_target) {
-    int reg_offset, index, value, address;
-
-    reg_offset = (N >> 3) & 0xFFFFFFFC;
-    index = N & 0x1F;
-    value = 0x1 << index;
-    address = 0xFFFED100 + reg_offset;
-
-    *(int *)address |= value;
-
-    reg_offset = (N & 0xFFFFFFFC);
-    index = N & 0x3;
-    address = 0xFFFED800 + reg_offset + index;
-
-    *(char *)address = (char) CPU_target;
-}
-
-void config_PS2s() {
-    volatile int* PS2_ptr_interrupt = (int*)0xFF200104;
-    *(PS2_ptr_interrupt) = 0x1;
-} 
-
 void PS2_ISR() {
     volatile int * PS2_ptr = (int *) 0xFF200100;
     int PS2_data;
     PS2_data = *(PS2_ptr);
 
     int ascii_data = ps2_to_ascii(PS2_data, shift);
-    // char buffer[10];
-    // itoa(PS2_data, buffer, 16);
-    // plot_string(30, 30, buffer);
-    
-    // MANIPULATING CTRL
+
+    /***********************************************************/
+    /*******   MANIPULATING CTRL   *****************************/
+    /***********************************************************/
     if (PS2_data == 0x8014 && ctrl == false) {
         if (ctrl_flag == -1)
             ctrl_flag = 0;
@@ -209,15 +174,14 @@ void PS2_ISR() {
             ctrl = 0;
             ctrl_flag = -1;
         }
-        // if (ctrl_ptr_y <= where_you_are_y) {start_y = ctrl_ptr_y; end_y = where_you_are_y; }
-        // else {start_y = where_you_are_y; end_y = ctrl_ptr_y; }
 
         for (int i = start_y; i < end_y + 4; i++)
             draw_line(80 *4, i *4, 0 *4, i*4, 0x0000);
     }
-    //*****************//
 
-    // BACKSPACE FUNCTIONALITY
+    /***********************************************************/
+    /*******   BACKSPACE FUNCTIONALITY   ***********************/
+    /***********************************************************/
     if (ascii_data == 0x08 && !ctrl) {
         seen_flag = 0;
         if (where_you_are_x > 0) {
@@ -268,9 +232,11 @@ void PS2_ISR() {
         }
         return;
     }
-    //******************//
 
-    // CTRL COPY 
+
+    /***********************************************************/
+    /*******   COPY FUNCTIONALITY  *****************************/
+    /***********************************************************/
     if (ctrl && PS2_data == 0x8021) {
         int lower_bound, upper_bound;
         if (key_flag == 0) {
@@ -303,7 +269,10 @@ void PS2_ISR() {
             }
         } else key_flag = 0;
     }
-    // CTRL CUT
+
+    /***********************************************************/
+    /*******   CUT FUNCTIONALITY  ******************************/
+    /***********************************************************/
     if (ctrl && PS2_data == 0x8022) {
         int lower_bound, upper_bound;
         if (key_flag == 0) {
@@ -346,7 +315,10 @@ void PS2_ISR() {
             plot_string(where_you_are_x, where_you_are_y, data);
         } else key_flag = 0; 
     }
-    // CTRL PASTE 
+
+    /***********************************************************/
+    /*******   PASTE FUNCTIONALITY   ***************************/
+    /***********************************************************/
     if (ctrl && PS2_data == 0x802A) {
         if (key_flag == 0) {
             int k = 0;
@@ -371,9 +343,10 @@ void PS2_ISR() {
             plot_string(where_you_are_x, where_you_are_y, data);
         } else key_flag = 0; 
     }
-    //******************//
 
-    // ARROW KEY FUNCTIONALITY
+    /***********************************************************/
+    /*******   ARROW KEY FUNCTIONALITY   ***********************/
+    /***********************************************************/
     if (PS2_data == 0x806B) { // left
         if (!ctrl) {
             if (where_you_are_x > 0) {
@@ -518,9 +491,10 @@ void PS2_ISR() {
                 key_flag = 0;
         }
     }
-    //*****************//
     
-    // MANIPULATING SHIFT
+    /***********************************************************/
+    /*******   MANIPULATING SHIFT   ****************************/
+    /***********************************************************/
     if (PS2_data == 0x8012 && shift == 0) {
         if (shift_flag == -1)
             shift_flag = 0;
@@ -535,22 +509,31 @@ void PS2_ISR() {
             shift_flag = -1;
         }
     }
-    //*****************//
     
-    // CHECKING FOR BREAK
-    if ((ascii_data == 0) && (PS2_data != 0x8012) && (PS2_data != 0x8074) && (PS2_data != 0x8072) && (PS2_data != 0x8075) && (PS2_data != 0x806B)) {
+    /***********************************************************/
+    /*******   CHECKING FOR BREAK CODES  ***********************/
+    /***********************************************************/
+    if ((ascii_data == 0) && (PS2_data != 0x8012)
+        && (PS2_data != 0x8074)
+        && (PS2_data != 0x8072)
+        && (PS2_data != 0x8075)
+        && (PS2_data != 0x806B)) {
         seen_flag = 1;
         return;
     }
     
-    // DRAWING CHARACTERS
+    /***********************************************************/
+    /*******   DRAW CHARACTERS TO VGA   ************************/
+    /***********************************************************/
     if ((seen_flag == 0) && (PS2_data != 0x8012) && ascii_data != 1 && !ctrl) {
         char data[3];
         data[0] = ascii_data;
         data[1] = 0x3C;
         data[2] = '\0';
         
-        // TAB FUNCTIONALITY
+    /***********************************************************/
+    /*******   TAB FUNCTIONALITY   *****************************/
+    /***********************************************************/
         if (ascii_data == 0x09) {
             if ((where_you_are_x + 4) < 79) {
                 int offset = (where_you_are_y << 7) + where_you_are_x;
@@ -562,9 +545,6 @@ void PS2_ISR() {
                     *(character_buffer + offset - 1) = 0;
                 }
 
-                // int offset = (where_you_are_y << 7) + where_you_are_x + 4;
-                // *(character_buffer + offset) = temp_char;
-
                 where_you_are_x+=4;
                 all_lines[where_you_are_y] = all_lines[where_you_are_y] + 4;
 
@@ -574,9 +554,10 @@ void PS2_ISR() {
             }
             return;
         }
-        //********************//
         
-        // ENTER FUNCTIONALITY
+    /***********************************************************/
+    /*******   TAB FUNCTIONALITY   *****************************/
+    /***********************************************************/
         if (ascii_data == 0x0D) {
             if (where_you_are_y < 59) {
                 // get rid of cursor
@@ -595,9 +576,10 @@ void PS2_ISR() {
             }
             return;
         }
-        //********************//
         
-        // NORMAL CHARACTERS
+    /***********************************************************/
+    /*******   ALL OTHER CHARACTERS  ***************************/
+    /***********************************************************/
         if (all_lines[where_you_are_y] < 80) {
             if (where_you_are_x < 79) {
                 for (int i = all_lines[where_you_are_y] + 1; i > where_you_are_x; i--) {
@@ -621,19 +603,8 @@ void PS2_ISR() {
 
             }
         }
-        //****************//
-    } else
+    } else // reset the character flag
         seen_flag = 0;
-}
-
-void __attribute__ ((interrupt)) __cs3_isr_irq () {
-    int interrupt_ID = *((int *) 0xFFFEC10C);
-    if (interrupt_ID == 79) {
-        PS2_ISR();
-    } else
-        while (1);
-
-    *((int *) 0xFFFEC110) = interrupt_ID;
 }
 
 void set_A9_IRQ_stack() {
@@ -647,11 +618,54 @@ void set_A9_IRQ_stack() {
     asm("msr cpsr, %[ps]" : : [ps] "r" (mode));
 }
 
+void config_GIC() {
+    config_interrupt(79, 1);
+    *((int *) 0xFFFEC104) = 0xFFFF;
+    *((int *) 0xFFFEC100) = 1;
+    *((int *) 0xFFFED000) = 1;
+}
+
+void config_PS2s() {
+    volatile int* PS2_ptr_interrupt = (int*)0xFF200104;
+    *(PS2_ptr_interrupt) = 0x1;
+}
+
+void enable_A9_interrupts() {
+    int status = 0b01010011;
+    asm("msr cpsr, %[ps]" : : [ps]"r"(status));
+}
+
+void __attribute__ ((interrupt)) __cs3_isr_irq () {
+    int interrupt_ID = *((int *) 0xFFFEC10C);
+    if (interrupt_ID == 79) {
+        PS2_ISR();
+    } else
+        while (1);
+
+    *((int *) 0xFFFEC110) = interrupt_ID;
+}
+
+void config_interrupt (int N, int CPU_target) {
+    int reg_offset, index, value, address;
+
+    reg_offset = (N >> 3) & 0xFFFFFFFC;
+    index = N & 0x1F;
+    value = 0x1 << index;
+    address = 0xFFFED100 + reg_offset;
+
+    *(int *)address |= value;
+
+    reg_offset = (N & 0xFFFFFFFC);
+    index = N & 0x3;
+    address = 0xFFFED800 + reg_offset + index;
+
+    *(char *)address = (char) CPU_target;
+}
+
 void plot_pixel(int x, int y, short int line_color) {
     *(short int *)(pixel_buffer_start + (y << 10) + (x << 1)) = line_color;
 }
 
-//Bresenham’s algorithm
 void draw_line(int x0, int y0, int x1, int y1, short int color) {
     bool is_steep = abs(y1-y0) > abs(x1-x0);
 
@@ -700,23 +714,6 @@ void swap(int* val1, int* val2) {
     *val2 = temp;
 }
 
-
-void clear_screen() {
-    for (int x = 0; x < 320; x++) {
-        for (int y = 0; y < 240; y++) {
-            plot_pixel(x, y, 0x0000);
-        }
-    }
-}
-
-void clear_screen_w() {
-    for (int x = 0; x < 320; x++) {
-        for (int y = 0; y < 240; y++) {
-            plot_pixel(x, y, 0xFFFF);
-        }
-    }
-}
-
 void plot_string(int x, int y, char *text_ptr) {
     int offset = (y << 7) + x;
         while (*(text_ptr)) {
@@ -724,6 +721,14 @@ void plot_string(int x, int y, char *text_ptr) {
             text_ptr++;
             offset++;
         }
+}
+
+void clear_screen() {
+    for (int x = 0; x < 320; x++) {
+        for (int y = 0; y < 240; y++) {
+            plot_pixel(x, y, 0x0000);
+        }
+    }
 }
 
 void clear_characters() {
@@ -734,35 +739,35 @@ void clear_characters() {
             offset++;
         }
     }
-}
-
-void shift_chars_left() {
-
-}
+}`
 
 int main(void) {
     volatile int * pixel_ctrl_ptr = (int *)0xFF203020;
     pixel_buffer_start = *pixel_ctrl_ptr;
     character_buffer = (char *) 0xC9000000;
     
+    // clear the screen of pixels and characters
     clear_screen();
     clear_characters();
 
+    // set up interrupts
     set_A9_IRQ_stack();
     config_GIC();
     config_PS2s();
     enable_A9_interrupts();
     
+    // initialize character tracking
     where_you_are_x = 0;
     where_you_are_y = 0;
 
+    // put the cursor in top left corner
     char data[2];
     data[0] = 0x3C;
     data[1] = '\0';
     plot_string(where_you_are_x, where_you_are_y, data);
 
+    // have a loop run continuously
     while (1) {}
-    
     
     return 0;
 }
