@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+// interrupt functions
 void enable_A9_interrupts();
 void config_GIC();
 void config_interrupt (int N, int CPU_target);
@@ -9,6 +10,7 @@ void config_PS2s();
 void set_A9_IRQ_stack();
 void PS2_ISR();
 
+// helper functions
 void plot_pixel(int x, int y, short int line_color);
 void draw_line(int x0, int y0, int x1, int y1, short int color);
 void swap(int* val1, int* val2);
@@ -19,6 +21,7 @@ void clear_characters();
 volatile int pixel_buffer_start;
 volatile char *character_buffer;
 
+// global variable declaration
 int where_you_are_x, where_you_are_y;
 int ctrl_ptr_x, ctrl_ptr_y;
 int seen_flag = 0, shift = 0, shift_flag = 0, key_flag = 0, bs_flag = 0, ctrl_flag = 0;
@@ -147,11 +150,13 @@ int ps2_to_ascii (int ps2, int shift) {
     }
 }
 
+// handler for all PS/2 signals
 void PS2_ISR() {
     volatile int * PS2_ptr = (int *) 0xFF200100;
     int PS2_data;
     PS2_data = *(PS2_ptr);
 
+    // actual ascii char code from PS/2
     int ascii_data = ps2_to_ascii(PS2_data, shift);
 
     /***********************************************************/
@@ -183,36 +188,45 @@ void PS2_ISR() {
     /*******   BACKSPACE FUNCTIONALITY   ***********************/
     /***********************************************************/
     if (ascii_data == 0x08 && !ctrl) {
+        // reset seen_flag as to nto confuse flags later on
         seen_flag = 0;
-        if (where_you_are_x > 0) {
+        if (where_you_are_x > 0) { // if you're not at the start of a line
             if (bs_flag == 0) {
-                // erase the chracter where you are
+                // erase the cursor
                 int offset = (where_you_are_y << 7) + where_you_are_x;
                 *(character_buffer + offset) = 0;
+
+                // corner case for when you're at the end
                 if (where_you_are_x == 79)
                     *(character_buffer + offset + 1) = 0;
 
+                // shift all characters on the line to the left
                 for (int i = 0; i < all_lines[where_you_are_y] + 1; i++) {
                     offset = (where_you_are_y << 7) + where_you_are_x + i;
                     *(character_buffer + offset - 1) = *(character_buffer + offset);
                 }
 
+                // erase the last character on the line
                 offset = (where_you_are_y << 7) + where_you_are_x + all_lines[where_you_are_y];
                 *(character_buffer + offset) = 0;
 
+                // update position
                 where_you_are_x--;
                 all_lines[where_you_are_y] = all_lines[where_you_are_y] - 1;
 
+                // show that you have already performed the backspace operation
                 bs_flag = 1;
             } else
                 bs_flag = 0;
         }
-        else if (!(all_lines[where_you_are_y] > 0)) {
-            if (where_you_are_y > 0) {
+        else if (!(all_lines[where_you_are_y] > 0)) { // if the line is full
+            if (where_you_are_y > 0) { // if you're not the first line
                 if (bs_flag == 0) {
+                    // erase the cursor
                     int offset = (where_you_are_y << 7) + where_you_are_x;
                     *(character_buffer + offset) = 0;
 
+                    // update position
                     where_you_are_y--;
                     where_you_are_x = all_lines[where_you_are_y];
 
@@ -222,9 +236,11 @@ void PS2_ISR() {
             }
         }
         if (bs_flag) {
+            // perform the backspace
             int offset = (where_you_are_y << 7) + where_you_are_x;
             *(character_buffer + offset) = 0;
 
+            // reprint the cursor
             char data[2];
             data[0] = 0x3C;
             data[1] = '\0';
@@ -349,16 +365,18 @@ void PS2_ISR() {
     /***********************************************************/
     if (PS2_data == 0x806B) { // left
         if (!ctrl) {
-            if (where_you_are_x > 0) {
+            if (where_you_are_x > 0) { // you're allowed to move left if you're not at the edge
                 if (key_flag == 0) {
                     // put the old char back where cursor was and store new char
                     int offset = (where_you_are_y << 7) + where_you_are_x;
                     *(character_buffer + offset) = temp_char;
                     temp_char = *(character_buffer + offset - 1);
 
+                    // update youre position and show that you've done your move
                     where_you_are_x--;
                     key_flag = 1;
 
+                    // reprint cursor
                     char data[2];
                     data[0] = 0x3C;
                     data[1] = '\0';
@@ -366,17 +384,24 @@ void PS2_ISR() {
                 } else
                     key_flag = 0;
             }
-            else if (where_you_are_y > 0) {
+            else if (where_you_are_y > 0) { // if you're not on the first line
                 if (key_flag == 0) {
+                    // put back the old temp char where the cursor was
                     int offset = (where_you_are_y << 7) + where_you_are_x;
                     *(character_buffer + offset) = temp_char;
+
+                    // update y position
                     where_you_are_y--;
 
+                    // get the new temp char
                     offset = (where_you_are_y << 7) + where_you_are_x;
                     temp_char = *(character_buffer + offset);
 
+                    // update x position
                     where_you_are_x = all_lines[where_you_are_y];
                     key_flag = 1;
+
+                    // put cursor back
                     char data[2];
                     data[0] = 0x3C;
                     data[1] = '\0';
@@ -416,15 +441,17 @@ void PS2_ISR() {
             }
         }
     }
-    else if (PS2_data == 0x8074) { // right 
+    else if (PS2_data == 0x8074) { // right
+        // essentially the same as the left, but moving right instead of left
         if (!ctrl) {
             if (where_you_are_x < 80) {
                 if (key_flag == 0) {
+
                     int offset = (where_you_are_y << 7) + where_you_are_x;
                     *(character_buffer + offset) = temp_char;
                     temp_char = *(character_buffer + offset + 1);
-                    where_you_are_x++;
 
+                    where_you_are_x++;
                     key_flag = 1;
 
                     char data[2];
@@ -458,14 +485,22 @@ void PS2_ISR() {
         }
     }
     else if (PS2_data == 0x8075) { // up
-         if (where_you_are_y > 0 && !ctrl) {
+         if (where_you_are_y > 0 && !ctrl) { // if you can move up
             if (key_flag == 0) {
+                // put temp char back where cursor was
                 int offset = (where_you_are_y << 7) + where_you_are_x;
                 *(character_buffer + offset) = temp_char;
+
+                // update y position
                 where_you_are_y--;
+
+                // hold a new temp char
                 offset = (where_you_are_y << 7) + where_you_are_x;
                 temp_char = *(character_buffer + offset);
+
                 key_flag = 1;
+
+                // put cursor back
                 char data[2];
                 data[0] = 0x3C;
                 data[1] = '\0';
@@ -475,14 +510,20 @@ void PS2_ISR() {
         }
     }
     else if (PS2_data == 0x8072) { // down
+        // essentially the same as up but moving down instead of up
         if (where_you_are_y < 59 && !ctrl) {
             if (key_flag == 0) {
+
                 int offset = (where_you_are_y << 7) + where_you_are_x;
                 *(character_buffer + offset) = temp_char;
+
                 where_you_are_y++;
+
                 offset = (where_you_are_y << 7) + where_you_are_x;
                 temp_char = *(character_buffer + offset);
+
                 key_flag = 1;
+
                 char data[2];
                 data[0] = 0x3C;
                 data[1] = '\0';
@@ -496,24 +537,24 @@ void PS2_ISR() {
     /*******   MANIPULATING SHIFT   ****************************/
     /***********************************************************/
     if (PS2_data == 0x8012 && shift == 0) {
-        if (shift_flag == -1)
+        if (shift_flag == -1) // if third flag is shown, reset
             shift_flag = 0;
         else
-            shift = 1;          
-    }
-    else if (PS2_data == 0x8012 && shift == 1) {
-        if (shift_flag == 0) 
+            shift = 1; // if we see a 0, allow shift   
+    } 
+    else if (PS2_data == 0x8012 && shift == 1) { // if flag has already been seen
+        if (shift_flag == 0) // if still false, set to true
             shift_flag = 1;
         else {
-            shift = 0;
-            shift_flag = -1;
+            shift = 0; // disallow shift
+            shift_flag = -1; // set the flag to tertiary value, to prevent bouncing
         }
     }
     
     /***********************************************************/
     /*******   CHECKING FOR BREAK CODES  ***********************/
     /***********************************************************/
-    if ((ascii_data == 0) && (PS2_data != 0x8012)
+    if ((ascii_data == 0) && (PS2_data != 0x8012) // if you get a break and data is not shift or arrows, seen_flag is true
         && (PS2_data != 0x8074)
         && (PS2_data != 0x8072)
         && (PS2_data != 0x8075)
@@ -526,28 +567,34 @@ void PS2_ISR() {
     /*******   DRAW CHARACTERS TO VGA   ************************/
     /***********************************************************/
     if ((seen_flag == 0) && (PS2_data != 0x8012) && ascii_data != 1 && !ctrl) {
+        // prep cursor
         char data[3];
         data[0] = ascii_data;
         data[1] = 0x3C;
         data[2] = '\0';
         
-    /***********************************************************/
-    /*******   TAB FUNCTIONALITY   *****************************/
-    /***********************************************************/
+        /***********************************************************/
+        /*******   TAB FUNCTIONALITY   *****************************/
+        /***********************************************************/
         if (ascii_data == 0x09) {
+            // if you have enough space to tab
             if ((where_you_are_x + 4) < 79) {
+                // put temp char back where cursor was
                 int offset = (where_you_are_y << 7) + where_you_are_x;
                 *(character_buffer + offset) = temp_char;
 
+                // shift all your characters
                 for (int i = all_lines[where_you_are_y]; i > where_you_are_x; i--) {
                     int offset = (where_you_are_y << 7) + i;
                     *(character_buffer + offset + 3) = *(character_buffer + offset - 1);
                     *(character_buffer + offset - 1) = 0;
                 }
 
+                // update position
                 where_you_are_x+=4;
                 all_lines[where_you_are_y] = all_lines[where_you_are_y] + 4;
 
+                // redraw cursor
                 data[0] = 0x3C;
                 data[1] = '\0';
                 plot_string(where_you_are_x, where_you_are_y, data);
@@ -555,18 +602,21 @@ void PS2_ISR() {
             return;
         }
         
-    /***********************************************************/
-    /*******   TAB FUNCTIONALITY   *****************************/
-    /***********************************************************/
+        /***********************************************************/
+        /*******   ENTER FUNCTIONALITY   ***************************/
+        /***********************************************************/
         if (ascii_data == 0x0D) {
+            // if you can move down
             if (where_you_are_y < 59) {
-                // get rid of cursor
+                // put temp char back where cursor was
                 int offset = (where_you_are_y << 7) + where_you_are_x;
                 *(character_buffer + offset) = temp_char;
                 
+                // update position
                 where_you_are_y++;
                 where_you_are_x = 0;
 
+                // get a new temp char
                 offset = (where_you_are_y << 7) + where_you_are_x;
                 temp_char = *(character_buffer + offset);
 
@@ -577,30 +627,38 @@ void PS2_ISR() {
             return;
         }
         
-    /***********************************************************/
-    /*******   ALL OTHER CHARACTERS  ***************************/
-    /***********************************************************/
+        /***********************************************************/
+        /*******   ALL OTHER CHARACTERS  ***************************/
+        /***********************************************************/
         if (all_lines[where_you_are_y] < 80) {
+            // if you're not at the end of a line
             if (where_you_are_x < 79) {
+                // move all characters on the line over by one
                 for (int i = all_lines[where_you_are_y] + 1; i > where_you_are_x; i--) {
                     int offset = (where_you_are_y << 7) + i;
                     *(character_buffer + offset) = *(character_buffer + offset - 1);
                 }
 
+                // put the new character in 
                 plot_string(where_you_are_x, where_you_are_y, data);
 
+                // update position
                 where_you_are_x++;
                 all_lines[where_you_are_y] = all_lines[where_you_are_y] + 1;
-            } else if ((where_you_are_x == 79) && (where_you_are_y < 59)) {
+            }
+            // if you're at the end of a line
+            else if ((where_you_are_x == 79) && (where_you_are_y < 59)) {
+                // put the new character in
                 plot_string(where_you_are_x, where_you_are_y, data);
 
+                // update position
                 where_you_are_x = 0;
                 where_you_are_y++;
 
+                // print new cursor
                 data[0] = 0x3C;
                 data[1] = '\0';
                 plot_string(where_you_are_x, where_you_are_y, data);
-
             }
         }
     } else // reset the character flag
@@ -662,10 +720,12 @@ void config_interrupt (int N, int CPU_target) {
     *(char *)address = (char) CPU_target;
 }
 
+// plots pixel on screen
 void plot_pixel(int x, int y, short int line_color) {
     *(short int *)(pixel_buffer_start + (y << 10) + (x << 1)) = line_color;
 }
 
+// draws a straight line to screen
 void draw_line(int x0, int y0, int x1, int y1, short int color) {
     bool is_steep = abs(y1-y0) > abs(x1-x0);
 
@@ -708,12 +768,14 @@ void draw_line(int x0, int y0, int x1, int y1, short int color) {
     }
 }
 
+//helper function for draw line
 void swap(int* val1, int* val2) {
     int temp = *val1;
     *val1 = *val2;
     *val2 = temp;
 }
 
+// plots a string to the VGA using char buffer
 void plot_string(int x, int y, char *text_ptr) {
     int offset = (y << 7) + x;
         while (*(text_ptr)) {
@@ -723,6 +785,7 @@ void plot_string(int x, int y, char *text_ptr) {
         }
 }
 
+// clear screen of any pixels
 void clear_screen() {
     for (int x = 0; x < 320; x++) {
         for (int y = 0; y < 240; y++) {
@@ -731,6 +794,7 @@ void clear_screen() {
     }
 }
 
+// clear screen of any characters
 void clear_characters() {
     for(int y = 0; y < 60; y++){
         for(int x = 0; x < 80; x++){
@@ -739,7 +803,7 @@ void clear_characters() {
             offset++;
         }
     }
-}`
+}
 
 int main(void) {
     volatile int * pixel_ctrl_ptr = (int *)0xFF203020;
