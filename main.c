@@ -78,6 +78,11 @@ int ps2_to_ascii (int ps2, int shift) {
         else if (ps2 == 0x805D) return 0x7C; // |
         else if (ps2 == 0x805B) return 0x7D; // }
         else if (ps2 == 0x800E) return 0x7E; // ~
+        else if (ps2 == 0x8029) return 0x20; // space
+        else if (ps2 == 0x8066) return 0x08; // backspace 
+        else if (ps2 == 0x800D) return 0x09; // tab 
+        else if (ps2 == 0x805A) return 0x0D; // enter 
+        else if (ps2 == 0x8076) return 0x1B; // escape
         else return 0;
     }
     else {
@@ -270,20 +275,22 @@ void PS2_ISR() {
         int lower_bound, upper_bound;
         if (key_flag == 0) {
             key_flag = 1; 
-            if (size > 0)
-                free(copy); 
+            if (size > 0) {
+                memset(copy, 0, size * (sizeof copy[0]));
+                free(copy);
+            }
             int k = 0; 
-            int diff = end_y - start_y;
+            int diff = where_you_are_y - ctrl_ptr_y;
             if (diff > 0)
-                size = (80 - start_x) + end_x + (80*(diff-1));
+                size = (80 - ctrl_ptr_x) + where_you_are_x + (80*(diff-1));
             else 
-                size = end_x - start_x; 
+                size = where_you_are_x - ctrl_ptr_x; 
 
             copy = (char *)malloc(size * sizeof(char));
-            for (int i = start_y; i < end_y + 1; i++) {
-                if (start_y == end_y) {lower_bound = start_x; upper_bound = end_x;}
-                else if (i == start_y) {lower_bound = start_x; upper_bound = 80;}
-                else if (i == end_y) {lower_bound = 0; end_x = upper_bound;}
+            for (int i = ctrl_ptr_y; i < where_you_are_y + 1; i++) {
+                if (ctrl_ptr_y == where_you_are_y) {lower_bound = ctrl_ptr_x; upper_bound = where_you_are_x;}
+                else if (i == start_y) {lower_bound = ctrl_ptr_x; upper_bound = 80;}
+                else if (i == where_you_are_y) {lower_bound = 0; upper_bound = where_you_are_x;}
                 else {lower_bound = 0; upper_bound = 80;}
                 for (int j = lower_bound; j < upper_bound; j++) {
                     int offset = (i << 7) + j;
@@ -301,22 +308,24 @@ void PS2_ISR() {
         int lower_bound, upper_bound;
         if (key_flag == 0) {
             key_flag = 1; 
-            if (size > 0)
-                free(copy); 
+            if (size > 0) {
+                memset(copy, 0, size * (sizeof copy[0]));
+                free(copy);
+            }
             int k = 0; 
-            int diff = end_y - start_y;
+            int diff = where_you_are_y - ctrl_ptr_y;
             if (diff > 0)
-                size = (80 - start_x) + end_x + (80*(diff-1));
+                size = (80 - ctrl_ptr_x) + where_you_are_x + (80*(diff-1));
             else 
-                size = end_x - start_x; 
+                size = where_you_are_x - ctrl_ptr_x; 
 
             copy = (char *)malloc(size * sizeof(char));
-            for (int i = start_y; i < end_y + 1; i++) {
-                if (start_y == end_y) {lower_bound = start_x; upper_bound = end_x;}
-                else if (i == start_y) {lower_bound = start_x; upper_bound = 80;}
-                else if (i == end_y) {lower_bound = 0; end_x = upper_bound;}
+            for (int i = ctrl_ptr_y; i < where_you_are_y + 1; i++) {
+                if (ctrl_ptr_y == where_you_are_y) {lower_bound = ctrl_ptr_x; upper_bound = where_you_are_x;}
+                else if (i == ctrl_ptr_y) {lower_bound = ctrl_ptr_x; upper_bound = 80;}
+                else if (i == where_you_are_y) {lower_bound = 0; upper_bound = where_you_are_x-1;}
                 else {lower_bound = 0; upper_bound = 80;}
-                for (int j = lower_bound; j < upper_bound; j++) {
+                for (int j = lower_bound; j <= upper_bound; j++) {
                     int offset = (i << 7) + j;
                     if (*(character_buffer + offset) != '<')
                         copy[k] = *(character_buffer + offset); 
@@ -326,8 +335,11 @@ void PS2_ISR() {
                     k++;
                 }
             }
-            where_you_are_x = start_x;
-            where_you_are_y = start_y; 
+            int offset = (where_you_are_y << 7) + where_you_are_x;
+            *(character_buffer + offset) = 0;
+            
+            where_you_are_x = ctrl_ptr_x;
+            where_you_are_y = ctrl_ptr_y; 
             char data[2];
             data[0] = 0x3C;
             data[1] = '\0';
@@ -348,7 +360,7 @@ void PS2_ISR() {
                 char data [1];
                 data [0] = copy[i];
                 if (data[0] != '<')
-                        plot_string(j, where_you_are_y + k, data);
+                    plot_string(j, where_you_are_y + k, data);
                 j++; 
             }
             where_you_are_x = j;
@@ -471,36 +483,6 @@ void PS2_ISR() {
                 }
             }
         }
-        else { // highlight 
-            if (ctrl_ptr_x < 80) {
-                if (key_flag == 0) {
-                    ctrl_ptr_x++;
-                    key_flag = 1;
-                    if (ctrl_ptr_y == where_you_are_y)
-                        draw_line(ctrl_ptr_x *4, ctrl_ptr_y *4, where_you_are_x *4, ctrl_ptr_y*4, 0xF81F);
-                    else if (ctrl_ptr_x == 80 && ctrl_ptr_y == 60) return;
-                    else draw_line(ctrl_ptr_x *4, ctrl_ptr_y *4, (ctrl_ptr_x+1) *4, ctrl_ptr_y*4, 0xF81F);
-                } else key_flag = 0;
-            }
-            else if (ctrl_ptr_y < 59) {
-                if (key_flag == 0) {
-                    ctrl_ptr_y++;
-                    ctrl_ptr_x = all_lines[ctrl_ptr_y];
-                    key_flag = 1;
-                    draw_line(ctrl_ptr_x *4, ctrl_ptr_y *4, (ctrl_ptr_x+1) *4, ctrl_ptr_y*4, 0xF81F);
-                } else key_flag = 0;
-            }
-            if (ctrl_ptr_y <= start_y) {
-                start_y = ctrl_ptr_y;
-                if (ctrl_ptr_x < start_x)
-                    start_x = ctrl_ptr_x;
-            }
-            else if (ctrl_ptr_y >= end_y) {
-                end_y = ctrl_ptr_y;
-                if (ctrl_ptr_x < end_x)
-                    start_x = ctrl_ptr_x;
-            }
-        }
     }
     else if (PS2_data == 0x8075) { // up
          if (where_you_are_y > 0 && !ctrl) {
@@ -518,32 +500,6 @@ void PS2_ISR() {
             } else
                  key_flag = 0;
         }
-        else if (ctrl_ptr_y > 0 && ctrl) { // highlight 
-            if (key_flag == 0) {
-                ctrl_ptr_y--;
-                key_flag = 1;
-                for (int i = ctrl_ptr_y; i < where_you_are_y + 1; i++){
-                    if (i == ctrl_ptr_y) 
-                        draw_line((ctrl_ptr_x -1) *4, i *4, 80 * 4, i*4, 0xF81F);
-                    else if (i == where_you_are_y)
-                        draw_line(0 *4, i *4, where_you_are_x *4, i*4, 0xF81F);
-                    else
-                        draw_line(0 *4, i *4, 80 *4, i*4, 0xF81F);
-                    
-                }
-
-            } else key_flag = 0;
-            if (ctrl_ptr_y <= start_y) {
-                start_y = ctrl_ptr_y;
-                if (ctrl_ptr_x < start_x)
-                    start_x = ctrl_ptr_x;
-            }
-            else if (ctrl_ptr_y >= end_y) {
-                end_y = ctrl_ptr_y;
-                if (ctrl_ptr_x < end_x)
-                    start_x = ctrl_ptr_x;
-            }
-        }
     }
     else if (PS2_data == 0x8072) { // down
         if (where_you_are_y < 59 && !ctrl) {
@@ -560,32 +516,6 @@ void PS2_ISR() {
                 plot_string(where_you_are_x, where_you_are_y, data);
             } else
                 key_flag = 0;
-        }
-        else if (ctrl_ptr_y < 59 && ctrl) { // highlight 
-            if (key_flag == 0) {
-                ctrl_ptr_y++;
-                key_flag = 1;
-                for (int i = where_you_are_y; i < ctrl_ptr_y + 1; i++){
-                    if (i == where_you_are_y) 
-                        draw_line((where_you_are_x-1) *4, i *4, 80 * 4, i*4, 0xF81F);
-                    else if (i == ctrl_ptr_y)
-                        draw_line(0 *4, i *4, (ctrl_ptr_x+1) *4, i*4, 0xF81F);
-                    else
-                        draw_line(0 *4, i *4, 80 *4, i*4, 0xF81F);
-                    
-                }
-
-            } else key_flag = 0;
-            if (ctrl_ptr_y <= start_y) {
-                start_y = ctrl_ptr_y;
-                if (ctrl_ptr_x < start_x)
-                    start_x = ctrl_ptr_x;
-            }
-            else if (ctrl_ptr_y >= end_y) {
-                end_y = ctrl_ptr_y;
-                if (ctrl_ptr_x < end_x)
-                    start_x = ctrl_ptr_x;
-            }
         }
     }
     //*****************//
