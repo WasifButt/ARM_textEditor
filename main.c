@@ -665,6 +665,8 @@ void PS2_ISR() {
         seen_flag = 0;
 }
 
+// initiate the stack pointer for IRQ mode
+// from DE1-SOC ARM Cortex A9 Document
 void set_A9_IRQ_stack() {
     int stack, mode;
     stack = 0xFFFFFFFF - 7;
@@ -672,10 +674,13 @@ void set_A9_IRQ_stack() {
     mode = 0b11010010;
     asm("msr cpsr, %[ps]" : : [ps] "r" (mode));
     asm("mov sp, %[ps]" : : [ps] "r" (stack));
+
     mode = 0b11010011;
     asm("msr cpsr, %[ps]" : : [ps] "r" (mode));
 }
 
+// configure the Generic Interrupt Controller GIC
+// code taken from DE1-SOC ARM Cortex A9 Document
 void config_GIC() {
     config_interrupt(79, 1);
     *((int *) 0xFFFEC104) = 0xFFFF;
@@ -683,16 +688,22 @@ void config_GIC() {
     *((int *) 0xFFFED000) = 1;
 }
 
+// configure PS2 to reset & generate interrupts
+// code taken from DE1-SOC ARM Cortex A9 Document
 void config_PS2s() {
     volatile int* PS2_ptr_interrupt = (int*)0xFF200104;
     *(PS2_ptr_interrupt) = 0x1;
 }
 
+// turn on interrupts
+// code taken from DE1-SOC ARM Cortex A9 Document
 void enable_A9_interrupts() {
     int status = 0b01010011;
     asm("msr cpsr, %[ps]" : : [ps]"r"(status));
 }
 
+// IRQ exception handler
+// code taken from DE1-SOC ARM Cortex A9 Document
 void __attribute__ ((interrupt)) __cs3_isr_irq () {
     int interrupt_ID = *((int *) 0xFFFEC10C);
     if (interrupt_ID == 79) {
@@ -703,6 +714,8 @@ void __attribute__ ((interrupt)) __cs3_isr_irq () {
     *((int *) 0xFFFEC110) = interrupt_ID;
 }
 
+// configure ICDISERn and ICDIPTRn
+// code taken from Using the ARM GIC document
 void config_interrupt (int N, int CPU_target) {
     int reg_offset, index, value, address;
 
